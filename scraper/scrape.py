@@ -36,8 +36,17 @@ RETURN_BY      = "2026-07-31"
 DURATION_MIN   = 14
 DURATION_MAX   = 17
 ADULTS         = 2
-DEPARTURE_CITY = None       # None = dowolne lotnisko
 SERVICE_FILTER = [1]        # [1] = tylko All Inclusive (1=AI, 2=HB, 4=wlasne); [] = wszystkie
+PLANE_ONLY     = True       # tylko oferty samolotem (departureType=1)
+
+# Dwa widoki lotnisk: "waw" = domyslny (tylko Warszawa, value 278 = WAW+Modlin),
+# "all" = po wylaczeniu filtra (wszystkie lotniska w PL).
+DEPARTURES = {
+    "waw": {"ids": [278], "slug": "z-warszawy", "label": "tylko z Warszawy"},
+    "all": {"ids": None,  "slug": None,         "label": "wszystkie lotniska"},
+}
+SERVICE_SLUG   = "all-inclusive"   # slug wyzywienia do linku
+TRANSPORT_SLUG = "samolotem"       # slug transportu do linku (Samolot)
 
 BAND_LIMIT  = 300           # max ofert na jedno zapytanie (limit API)
 MAX_TRACK   = 500           # ile NAJTANSZYCH ofert sledzic na kierunek (caly realny zakres last-minute)
@@ -67,7 +76,7 @@ def slugify(s):
     return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
 
 
-def build_body(country_id, limit, min_price=None, max_price=None):
+def build_body(country_id, limit, min_price=None, max_price=None, departure=None):
     query = {
         "campTypes": [], "qsVersion": 0, "qsVersionLast": 0,
         "tab": False, "candy": False, "pok": None, "flush": False,
@@ -76,7 +85,7 @@ def build_body(country_id, limit, min_price=None, max_price=None):
         "rangeDate": None, "withoutLast": 0, "category": False, "not-attribute": False,
         "pageNumber": 1,
         "departureDate": DEPARTURE_FROM, "arrivalDate": RETURN_BY,
-        "departure": DEPARTURE_CITY, "type": [],
+        "departure": departure, "type": [],
         "duration": {"min": DURATION_MIN, "max": DURATION_MAX},
         "minPrice": min_price, "maxPrice": max_price,
         "service": SERVICE_FILTER, "firstminute": None, "attribute": [], "promotion": [],
@@ -99,12 +108,12 @@ def build_body(country_id, limit, min_price=None, max_price=None):
     return [{"method": "search.tripsSearch", "params": params}]
 
 
-def query(country_id, min_price=None, max_price=None, limit=BAND_LIMIT, retries=2):
+def query(country_id, min_price=None, max_price=None, limit=BAND_LIMIT, departure=None, retries=2):
     """Zwraca (count, [offers]) lub (None, [])."""
     for attempt in range(retries):
         try:
             r = requests.post(API_URL, headers=HEADERS,
-                              json=build_body(country_id, limit, min_price, max_price), timeout=45)
+                              json=build_body(country_id, limit, min_price, max_price, departure), timeout=45)
             data = json.loads(r.content.decode("utf-8"))
             if not data.get("success"):
                 msg = data.get("error", {}).get("message", "?")
@@ -118,9 +127,9 @@ def query(country_id, min_price=None, max_price=None, limit=BAND_LIMIT, retries=
     return None, []
 
 
-def count_below(country_id, price):
+def count_below(country_id, price, departure=None):
     """Liczba ofert z cena <= price (maxPrice). price=None -> wszystkie."""
-    c, _ = query(country_id, max_price=price, limit=1)
+    c, _ = query(country_id, max_price=price, limit=1, departure=departure)
     time.sleep(REQ_DELAY)
     return c or 0
 
@@ -131,10 +140,11 @@ def offer_key(o):
         o.get("serviceDesc"), o.get("tourOperator")))
 
 
-def offer_url(o):
-    """Gleboki link do KONKRETNEJ oferty na dany termin (2 os. = domyslne wakacje.pl).
-    Wzorzec: /oferty/{kraj}/{region}/{miasto}/{urlName}-{offerId}.html?od-...,do-...
-    UWAGA: id w sciezce to offerId (NIE hotelId — hotelId przekierowuje na liste!)."""
+def offer_url(o, departure_slug=None):
+    """Gleboki link do KONKRETNEJ oferty na dany termin, wyzywienie i transport.
+    Wzorzec (parametry rozdzielone PRZECINKAMI, BEZ do-):
+      /oferty/{kraj}/{region}/{miasto}/{urlName}-{offerId}.html?od-{wylot},{N}-dni,all-inclusive,samolotem[,z-warszawy]
+    UWAGA: id w sciezce to offerId (hotelId przekierowuje na liste!)."""
     place = o.get("place", {}) or {}
     parts = []
     for key in ("country", "region", "city"):
@@ -143,16 +153,16 @@ def offer_url(o):
             parts.append(v["slug"])
     seg = "/".join(parts)
     url_name, oid = o.get("urlName"), o.get("offerId")
-    dep, ret = o.get("departureDate"), o.get("returnDate")
-    if seg and url_name and oid:
-        url = f"https://www.wakacje.pl/oferty/{seg}/{url_name}-{oid}.html"
-        if dep and ret:
-            url += f"?od-{dep},do-{ret}"
-        return url
-    return "https://www.wakacje.pl/"
+    dep, dur = o.get("departureDate"), o.get("duration")
+    if not (seg and url_name and oid and dep and dur):
+        return "https://www.wakacje.pl/"
+    tokens = [f"od-{dep}", f"{dur}-dni", SERVICE_SLUG, TRANSPORT_SLUG]
+    if departure_slug:
+        tokens.append(departure_slug)
+    return f"https://www.wakacje.pl/oferty/{seg}/{url_name}-{oid}.html?" + ",".join(tokens)
 
 
-def slim(o):
+def slim(o, departure_slug=None):
     return {
         "name": o.get("name"), "place": o.get("placeName"),
         "hotelId": o.get("hotelId"), "urlName": o.get("urlName"),
@@ -160,22 +170,23 @@ def slim(o):
         "duration": o.get("duration"), "service": o.get("serviceDesc"),
         "operator": o.get("tourOperatorName"), "departureFrom": o.get("departurePlace"),
         "category": o.get("category"), "rating": o.get("ratingValue") or None,
-        "url": offer_url(o),
+        "url": offer_url(o, departure_slug),
     }
 
 
-def enumerate_offers(country_id):
-    """Zbiera NAJTANSZE ~MAX_TRACK ofert kierunku, przesuwajac okno cenowe od dolu.
+def enumerate_offers(country_id, departure=None):
+    """Zbiera NAJTANSZE ~MAX_TRACK ofert kierunku (dla danego lotniska), okno cenowe od dolu.
     Lagodne tempo + twardy limit zapytan = odporne na throttling (burst).
     Zwraca ({key: raw_offer}, total_dostepnych)."""
-    total = count_below(country_id, None)      # 1 lekkie zapytanie: cala dostepnosc
+    total = count_below(country_id, None, departure=departure)   # 1 lekkie zapytanie: dostepnosc
     offers = {}
     lo = 0
     step = STEP_START
     fetches = 0
     while fetches < MAX_FETCHES and len(offers) < MAX_TRACK and lo <= PRICE_HI:
         hi = min(lo + step, PRICE_HI)
-        count, band = query(country_id, min_price=(lo or None), max_price=hi, limit=BAND_LIMIT)
+        count, band = query(country_id, min_price=(lo or None), max_price=hi,
+                            limit=BAND_LIMIT, departure=departure)
         fetches += 1
         time.sleep(REQ_DELAY)
         if count is None:                      # twardy blad mimo ponowien -> pomijamy pasmo
@@ -185,6 +196,8 @@ def enumerate_offers(country_id):
             continue
         for o in band:
             if not o.get("price"):
+                continue
+            if PLANE_ONLY and o.get("departureType") != 1:    # tylko samolot
                 continue
             dep = o.get("departureDate") or ""
             if not (DEPARTURE_FROM <= dep <= DEPARTURE_TO):   # tylko wylot w oknie
@@ -205,9 +218,9 @@ def enumerate_offers(country_id):
     return offers, total
 
 
-def update_store(dest, slug, scraped, ts, run_iso):
-    """Wczytuje data/offers_<slug>.json, dopisuje obserwacje cen, zapisuje."""
-    path = os.path.join(DATA_DIR, f"offers_{slug}.json")
+def update_store(dest, store_slug, scraped, run_iso, departure_slug=None):
+    """Wczytuje data/offers_<store_slug>.json, dopisuje obserwacje cen, zapisuje."""
+    path = os.path.join(DATA_DIR, f"offers_{store_slug}.json")
     store = {"dest": dest, "offers": {}}
     if os.path.exists(path):
         with open(path, encoding="utf-8") as f:
@@ -221,7 +234,7 @@ def update_store(dest, slug, scraped, ts, run_iso):
     new_cnt = changed_cnt = 0
     for k, raw in scraped.items():
         price = raw["price"]
-        meta = slim(raw)
+        meta = slim(raw, departure_slug)
         if k in offers:
             e = offers[k]
             e.update(meta)               # odswiez metadane
@@ -249,8 +262,10 @@ def update_store(dest, slug, scraped, ts, run_iso):
 
 CONFIG = {"departureFrom": DEPARTURE_FROM, "departureTo": DEPARTURE_TO,
           "durationMin": DURATION_MIN, "durationMax": DURATION_MAX, "adults": ADULTS,
-          "departureCity": DEPARTURE_CITY or "dowolne",
-          "board": "All Inclusive" if SERVICE_FILTER == [1] else "dowolne"}
+          "board": "All Inclusive" if SERVICE_FILTER == [1] else "dowolne",
+          "transport": "Samolot" if PLANE_ONLY else "dowolny",
+          "views": {k: v["label"] for k, v in DEPARTURES.items()},
+          "defaultView": "waw"}
 
 
 def main():
@@ -258,46 +273,46 @@ def main():
     os.makedirs(DOCS_DATA_DIR, exist_ok=True)
     run_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
     print(f"== Scrape {run_iso} ==")
+    import shutil
 
     index = {"generatedAt": run_iso, "config": CONFIG, "destinations": {}}
     summary_line = []
 
     for dest, cid in DESTINATIONS.items():
-        print(f"  -> {dest} (countryId={cid})")
-        try:
-            scraped, total = enumerate_offers(cid)
-        except Exception as e:
-            print(f"  !! {dest}: {e}", file=sys.stderr); continue
-
         slug = slugify(dest)
-        offers, new_cnt, changed_cnt = update_store(dest, slug, scraped, run_iso, run_iso)
+        index["destinations"][dest] = {"slug": slug, "views": {}}
+        for vkey, v in DEPARTURES.items():
+            print(f"  -> {dest} / {v['label']}")
+            try:
+                scraped, total = enumerate_offers(cid, departure=v["ids"])
+            except Exception as e:
+                print(f"  !! {dest}/{vkey}: {e}", file=sys.stderr); continue
 
-        active = [e for e in offers.values() if e["active"]]
-        prices = sorted(e["lastPrice"] for e in active)
-        cheapest = prices[0] if prices else None
-        # licznik spadkow w tym przebiegu
-        drops = sum(1 for e in active if len(e["hist"]) >= 2 and e["hist"][-1][1] < e["hist"][-2][1])
-        print(f"     {len(scraped)} ofert AI (wylot {DEPARTURE_FROM}..{DEPARTURE_TO}) · "
-              f"nowych {new_cnt} · zmian ceny {changed_cnt} · najtansza {cheapest} zl")
+            store_slug = f"{slug}_{vkey}"
+            offers, new_cnt, changed_cnt = update_store(dest, store_slug, scraped, run_iso, v["slug"])
 
-        index["destinations"][dest] = {
-            "slug": slug, "total": total, "active": len(active),
-            "tracked": len(offers), "cheapest": cheapest,
-            "median": prices[len(prices)//2] if prices else None,
-            "newThisRun": new_cnt, "priceChangesThisRun": changed_cnt, "dropsThisRun": drops,
-        }
-        summary_line.append({"ts": run_iso, "dest": dest, "count": total,
-                             "active": len(active), "minPrice": cheapest})
+            active = [e for e in offers.values() if e["active"]]
+            prices = sorted(e["lastPrice"] for e in active)
+            cheapest = prices[0] if prices else None
+            drops = sum(1 for e in active if len(e["hist"]) >= 2 and e["hist"][-1][1] < e["hist"][-2][1])
+            print(f"     [{vkey}] {len(scraped)} ofert AI samolotem (wylot {DEPARTURE_FROM}..{DEPARTURE_TO}) · "
+                  f"nowych {new_cnt} · zmian {changed_cnt} · najtansza {cheapest} zl")
 
-        # kopia per-kierunek dla dashboardu (lekka: bez nieaktywnych starszych niz... -> pelna na razie)
-        import shutil
-        shutil.copy(os.path.join(DATA_DIR, f"offers_{slug}.json"),
-                    os.path.join(DOCS_DATA_DIR, f"offers_{slug}.json"))
+            index["destinations"][dest]["views"][vkey] = {
+                "label": v["label"], "storeSlug": store_slug,
+                "active": len(active), "tracked": len(offers), "cheapest": cheapest,
+                "median": prices[len(prices)//2] if prices else None,
+                "newThisRun": new_cnt, "priceChangesThisRun": changed_cnt, "dropsThisRun": drops,
+            }
+            summary_line.append({"ts": run_iso, "dest": dest, "view": vkey,
+                                 "active": len(active), "minPrice": cheapest})
+            shutil.copy(os.path.join(DATA_DIR, f"offers_{store_slug}.json"),
+                        os.path.join(DOCS_DATA_DIR, f"offers_{store_slug}.json"))
 
     if not index["destinations"]:
         print("!! Brak danych — nic nie zapisuje.", file=sys.stderr); sys.exit(1)
 
-    # lekka historia zbiorcza (do wykresu najtanszej ceny / dostepnosci)
+    # lekka historia zbiorcza (do wykresu najtanszej ceny w czasie, per widok)
     hist_path = os.path.join(DATA_DIR, "history.jsonl")
     with open(hist_path, "a", encoding="utf-8") as f:
         for s in summary_line:

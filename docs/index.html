@@ -67,6 +67,10 @@
   .hlcard .dd{font-size:12.5px;font-weight:700;color:var(--green);margin-top:4px}
   .hl-empty{color:var(--muted);font-size:13px;background:var(--card);border:1px dashed var(--line);
             border-radius:11px;padding:14px;line-height:1.5}
+  .viewbar{display:flex;align-items:center;gap:12px;margin:14px 0 2px;flex-wrap:wrap}
+  .viewbar label{display:flex;align-items:center;gap:9px;font-size:15px;font-weight:600;cursor:pointer;
+       background:var(--card);border:1px solid var(--line);border-radius:22px;padding:9px 17px;-webkit-tap-highlight-color:transparent}
+  .viewbar input{accent-color:var(--accent);width:18px;height:18px;cursor:pointer}
   .chart-h{position:relative;height:260px}
   a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   .err{color:var(--amber);padding:16px;display:block}
@@ -96,6 +100,11 @@
   <div class="sub" id="cfg">Ładowanie…</div>
 </header>
 <div class="wrap">
+  <div class="viewbar">
+    <label><input type="checkbox" id="fWaw" checked> ✈️ Tylko z Warszawy</label>
+    <span class="hint" id="viewNote"></span>
+  </div>
+
   <div class="cards" id="cards"></div>
 
   <div class="sec-h">🔥 Największe spadki cen <span class="pill">oferty, które potaniały od startu śledzenia</span></div>
@@ -132,7 +141,10 @@ const fmt=n=>n==null?'—':new Intl.NumberFormat('pl-PL').format(Math.round(n))+
 const fmtD=s=>new Date(s).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 const PAGE=80;
 const MIN_DROP_ABS=100, MIN_DROP_PCT=3;   // prog "znaczacego" spadku: >=100 zl LUB >=3%
-let STATE={dest:null,offersByDest:{},shown:PAGE,modalChart:null};
+let STATE={dest:null,view:'waw',data:{},shown:PAGE,modalChart:null,ovChart:null,
+           index:null,history:[],dests:[]};
+
+function curOffers(){return (STATE.data[STATE.view]||{})[STATE.dest]||{};}
 
 async function load(){
   let index,history;
@@ -143,71 +155,94 @@ async function load(){
     document.getElementById('cfg').innerHTML='<span class="err">Brak danych — poczekaj na pierwszy przebieg GitHub Actions.</span>';return;
   }
   const dests=Object.keys(index.destinations);
-  for(const d of dests){
-    const slug=index.destinations[d].slug;
-    try{ STATE.offersByDest[d]=(await(await fetch('data/offers_'+slug+'.json?t='+Date.now())).json()).offers; }
-    catch(e){ STATE.offersByDest[d]={}; }
+  const views=Object.keys(index.config.views||{waw:1});
+  for(const v of views){
+    STATE.data[v]={};
+    for(const d of dests){
+      const slug=index.destinations[d].slug;
+      try{ STATE.data[v][d]=(await(await fetch(`data/offers_${slug}_${v}.json?t=`+Date.now())).json()).offers; }
+      catch(e){ STATE.data[v][d]={}; }
+    }
   }
-  render(index,history,dests);
+  STATE.index=index; STATE.history=history; STATE.dests=dests;
+  STATE.view=index.config.defaultView||'waw';
+  setup();
+  renderView();
 }
 
-function render(index,history,dests){
-  const c=index.config;
+function setup(){
+  const c=STATE.index.config;
+  document.getElementById('foot').textContent=
+    'Ostatnia aktualizacja: '+fmtD(STATE.index.generatedAt)+' · źródło: wakacje.pl · zbierane 2× dziennie';
+  // przelacznik Warszawa
+  const waw=document.getElementById('fWaw');
+  waw.checked = STATE.view==='waw';
+  waw.onchange=()=>{ STATE.view = waw.checked?'waw':'all'; STATE.shown=PAGE; renderView(); };
+  // taby kierunkow (raz)
+  const tabs=document.getElementById('tabs'); tabs.innerHTML='';
+  STATE.dests.forEach((d,i)=>{
+    const b=document.createElement('div'); b.className='tab'+(i===0?' active':''); b.dataset.d=d;
+    b.onclick=()=>{STATE.dest=d;[...tabs.children].forEach(x=>x.classList.remove('active'));b.classList.add('active');STATE.shown=PAGE;drawList();};
+    tabs.appendChild(b);
+  });
+  STATE.dest=STATE.dests[0];
+  ['search','sort','fActive','fDrop'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>{STATE.shown=PAGE;drawList();});
+  });
+  document.getElementById('more').onclick=()=>{STATE.shown+=PAGE;drawList();};
+}
+
+function renderView(){
+  const c=STATE.index.config, view=STATE.view;
+  const vlabel=(c.views&&c.views[view])||view;
   document.getElementById('cfg').textContent=
     `Wylot ${c.departureFrom} – ${c.departureTo} · ${c.durationMin}–${c.durationMax} dni · ${c.adults} os.`
-    + ` · ${c.board||'dowolne'} · lotnisko: ${c.departureCity}`;
-  document.getElementById('foot').textContent=
-    'Ostatnia aktualizacja: '+fmtD(index.generatedAt)+' · źródło: wakacje.pl · zbierane 2× dziennie';
+    + ` · ${c.board||'dowolne'} · ${c.transport||'Samolot'}`;
+  document.getElementById('viewNote').textContent =
+    view==='waw' ? 'Pokazuję tylko wyloty z Warszawy. Odznacz, aby zobaczyć wszystkie lotniska.'
+                 : 'Pokazuję wszystkie lotniska w Polsce (najtańszy wylot dla każdej oferty).';
 
   // karty
   const cards=document.getElementById('cards');cards.innerHTML='';
-  for(const d of dests){
-    const s=index.destinations[d];
+  for(const d of STATE.dests){
+    const s=(STATE.index.destinations[d].views||{})[view]||{};
     cards.insertAdjacentHTML('beforeend',`
       <div class="card" style="border-top:3px solid ${COLORS[d]||'#3ea6ff'}">
         <h3>${d}</h3>
         <div class="big">${fmt(s.cheapest)}</div>
-        <div class="sm">${s.active} ofert All Inclusive<br>w oknie wylotu · ${s.tracked} śledzonych w czasie</div>
+        <div class="sm">${s.active||0} ofert AI samolotem · ${vlabel}<br>${s.tracked||0} śledzonych w czasie</div>
         <div class="sm">${s.dropsThisRun?`<span class="down">▼ ${s.dropsThisRun} staniało</span> · `:''}${s.priceChangesThisRun||0} zmian ceny</div>
       </div>`);
   }
 
-  // najwieksze spadki
-  renderHighlights(dests);
+  renderHighlights();
 
-  // wykres przeglądowy
-  const labels=[...new Set(history.map(r=>r.ts))].sort();
-  const ds=dests.map(d=>{const m=Object.fromEntries(history.filter(r=>r.dest===d).map(r=>[r.ts,r.minPrice]));
+  // wykres przeglądowy (tylko dla biezacego widoku)
+  const hv=STATE.history.filter(r=>(r.view||'waw')===view);
+  const labels=[...new Set(hv.map(r=>r.ts))].sort();
+  const ds=STATE.dests.map(d=>{const m=Object.fromEntries(hv.filter(r=>r.dest===d).map(r=>[r.ts,r.minPrice]));
     return{label:d,data:labels.map(t=>m[t]??null),borderColor:COLORS[d]||'#3ea6ff',
       backgroundColor:(COLORS[d]||'#3ea6ff')+'22',tension:.25,spanGaps:true,pointRadius:2,borderWidth:2};});
-  new Chart(document.getElementById('ovChart'),{type:'line',
+  if(STATE.ovChart)STATE.ovChart.destroy();
+  STATE.ovChart=new Chart(document.getElementById('ovChart'),{type:'line',
     data:{labels:labels.map(fmtD),datasets:ds},
     options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
       plugins:{legend:{labels:{color:'#e8edf2',boxWidth:14,font:{size:12}}}},
       scales:{x:{ticks:{color:'#9fb0c0',maxTicksLimit:6,font:{size:10}},grid:{color:'#22303f'}},
               y:{ticks:{color:'#9fb0c0',font:{size:11}},grid:{color:'#22303f'}}}}});
 
-  // taby
-  const tabs=document.getElementById('tabs');tabs.innerHTML='';
-  for(const d of dests){
-    const b=document.createElement('div');b.className='tab';b.textContent=d+` (${index.destinations[d].active})`;
-    b.onclick=()=>{STATE.dest=d;[...tabs.children].forEach(x=>x.classList.remove('active'));b.classList.add('active');STATE.shown=PAGE;drawList();};
-    tabs.appendChild(b);
-  }
-  STATE.dest=dests[0];tabs.children[0].classList.add('active');
-
-  ['search','sort','fActive','fDrop'].forEach(id=>{
-    document.getElementById(id).addEventListener('input',()=>{STATE.shown=PAGE;drawList();});
-  });
-  document.getElementById('more').onclick=()=>{STATE.shown+=PAGE;drawList();};
+  // liczniki w tabach
+  const tabs=document.getElementById('tabs');
+  [...tabs.children].forEach(b=>{const s=(STATE.index.destinations[b.dataset.d].views||{})[view]||{};
+    b.textContent=b.dataset.d+` (${s.active||0})`;});
   drawList();
 }
 
-function renderHighlights(dests){
+function renderHighlights(){
   const box=document.getElementById('highlights');
   const drops=[];
-  for(const d of dests){
-    for(const [k,e] of Object.entries(STATE.offersByDest[d]||{})){
+  for(const d of STATE.dests){
+    for(const [k,e] of Object.entries((STATE.data[STATE.view]||{})[d]||{})){
       if(!e.active) continue;
       const abs=e.firstPrice-e.lastPrice;          // >0 = potaniało od startu
       if(abs<=0) continue;
@@ -235,7 +270,7 @@ function renderHighlights(dests){
 }
 
 function filterSort(){
-  const offers=STATE.offersByDest[STATE.dest]||{};
+  const offers=curOffers();
   const q=document.getElementById('search').value.trim().toLowerCase();
   const onlyActive=document.getElementById('fActive').checked;
   const onlyDrop=document.getElementById('fDrop').checked;
@@ -292,7 +327,7 @@ function drawList(){
 
 function openModal(k,dest){
   dest=dest||STATE.dest;
-  const e=(STATE.offersByDest[dest]||{})[k];if(!e)return;
+  const e=((STATE.data[STATE.view]||{})[dest]||{})[k];if(!e)return;
   const chg=e.lastPrice-e.firstPrice;
   const sheet=document.getElementById('sheet');
   sheet.innerHTML=`<button class="close" onclick="closeModal()">✕ Zamknij</button>
