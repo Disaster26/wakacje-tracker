@@ -38,8 +38,8 @@ SERVICE_FILTER = [1]        # [1] = tylko All Inclusive (1=AI, 2=HB, 4=wlasne); 
 
 BAND_LIMIT  = 300           # max ofert na jedno zapytanie (limit API)
 MAX_TRACK   = 500           # ile NAJTANSZYCH ofert sledzic na kierunek (caly realny zakres last-minute)
-MAX_FETCHES = 18            # twardy limit zapytan-pasm na kierunek (czas + grzecznosc)
-STEP_START  = 600           # poczatkowa szerokosc pasma cenowego (zl)
+MAX_FETCHES = 35            # twardy limit zapytan-pasm na kierunek (czas + grzecznosc)
+STEP_START  = 1200          # poczatkowa szerokosc pasma cenowego (zl)
 STEP_MIN    = 60            # min szerokosc pasma (gdy gesto)
 STEP_MAX    = 4000          # max szerokosc pasma (gdy rzadko)
 PRICE_HI    = 90000         # gorna granica ceny
