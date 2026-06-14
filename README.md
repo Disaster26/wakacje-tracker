@@ -55,7 +55,9 @@ więc działa szybko i stabilnie w GitHub Actions.
 - `data/latest.json` — pełne najtańsze oferty z ostatniego pomiaru
 - `docs/data/*.json` — kopie dla dashboardu (GitHub Pages serwuje `/docs`)
 
-## Uwagi
-- API ma okno wyników (~1200 ofert na zapytanie); najtańsze oferty mieszczą się w tym oknie.
-- Jeśli wakacje.pl zmieni strukturę API, trzeba będzie poprawić `build_body()` w scraperze.
-- Projekt do użytku prywatnego (monitoring własnych zakupów), z umiarem co do liczby zapytań.
+## Zakres i ograniczenia
+- Śledzone są **najtańsze ~500 ofert na kierunek** (`MAX_TRACK` w scraperze) — to pokrywa cały realny zakres last-minute. Droższych/luksusowych ofert z dalekiego ogona nie ma sensu śledzić, a pełne ich pobieranie 2× dziennie jest zawodne przez limity serwera.
+- wakacje.pl **throttluje serie zapytań** (burst), dlatego scraper ma łagodne tempo (`REQ_DELAY`) i twardy limit zapytań (`MAX_FETCHES`). Na świeżym IP GitHub Actions działa szybko i stabilnie.
+- Klucz oferty = `hotelId|data|powrót|wyżywienie|operator` — śledzi tę samą wycieczkę w czasie (ceny mogą się różnić zależnie od lotniska; bierzemy najtańszy wariant danego hotelu).
+- Jeśli wakacje.pl zmieni strukturę API, trzeba poprawić `build_body()` w scraperze.
+- Projekt do użytku prywatnego (monitoring własnych zakupów).
