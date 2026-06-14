@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-06-14T19:50:15Z",
+ "generatedAt": "2026-06-14T19:57:28Z",
  "config": {
   "departureDate": "2026-06-28",
   "arrivalDate": "2026-07-12",
@@ -13,24 +13,24 @@
   "Egipt": {
    "slug": "egipt",
    "total": 713,
-   "active": 130,
-   "tracked": 130,
+   "active": 520,
+   "tracked": 595,
    "cheapest": 1889,
-   "median": 15852,
-   "newThisRun": 130,
-   "priceChangesThisRun": 0,
-   "dropsThisRun": 0
+   "median": 6021,
+   "newThisRun": 465,
+   "priceChangesThisRun": 16,
+   "dropsThisRun": 16
   },
   "Turcja": {
    "slug": "turcja",
    "total": 1554,
-   "active": 506,
-   "tracked": 506,
+   "active": 559,
+   "tracked": 598,
    "cheapest": 2619,
-   "median": 6154,
-   "newThisRun": 506,
-   "priceChangesThisRun": 0,
-   "dropsThisRun": 0
+   "median": 6325,
+   "newThisRun": 92,
+   "priceChangesThisRun": 18,
+   "dropsThisRun": 4
   }
  }
 }
