@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-06-14T20:22:26Z",
+ "generatedAt": "2026-06-14T20:34:17Z",
  "config": {
   "departureDate": "2026-06-28",
   "arrivalDate": "2026-07-12",
@@ -17,20 +17,20 @@
    "tracked": 542,
    "cheapest": 1889,
    "median": 6061,
-   "newThisRun": 1,
+   "newThisRun": 0,
    "priceChangesThisRun": 0,
    "dropsThisRun": 0
   },
   "Turcja": {
    "slug": "turcja",
    "total": 1554,
-   "active": 559,
-   "tracked": 559,
+   "active": 561,
+   "tracked": 561,
    "cheapest": 2619,
-   "median": 6325,
-   "newThisRun": 0,
-   "priceChangesThisRun": 0,
-   "dropsThisRun": 0
+   "median": 6326,
+   "newThisRun": 2,
+   "priceChangesThisRun": 92,
+   "dropsThisRun": 71
   }
  }
 }
