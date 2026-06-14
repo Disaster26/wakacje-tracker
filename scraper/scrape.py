@@ -36,11 +36,13 @@ ADULTS         = 2
 DEPARTURE_CITY = None       # None = dowolne lotnisko
 
 BAND_LIMIT  = 300           # max ofert na jedno zapytanie (limit API)
-STEP_START  = 800           # poczatkowa szerokosc pasma cenowego (zl)
-STEP_MIN    = 40            # min szerokosc pasma (gdy gesto)
-STEP_MAX    = 8000          # max szerokosc pasma (gdy rzadko)
-PRICE_HI    = 90000         # gorna granica ceny przy enumeracji (zl za wszystkich)
-REQ_DELAY   = 0.7           # odstep miedzy zapytaniami (grzecznosc + unikanie throttlingu)
+MAX_TRACK   = 500           # ile NAJTANSZYCH ofert sledzic na kierunek (caly realny zakres last-minute)
+MAX_FETCHES = 18            # twardy limit zapytan-pasm na kierunek (czas + grzecznosc)
+STEP_START  = 600           # poczatkowa szerokosc pasma cenowego (zl)
+STEP_MIN    = 60            # min szerokosc pasma (gdy gesto)
+STEP_MAX    = 4000          # max szerokosc pasma (gdy rzadko)
+PRICE_HI    = 90000         # gorna granica ceny
+REQ_DELAY   = 1.0           # odstep miedzy zapytaniami: LAGODNE tempo eliminuje throttling (burst)
 # --------------------------------------------------------------------------
 
 API_URL = "https://www.wakacje.pl/v2/api/offers"
@@ -93,22 +95,22 @@ def build_body(country_id, limit, min_price=None, max_price=None):
     return [{"method": "search.tripsSearch", "params": params}]
 
 
-def query(country_id, min_price=None, max_price=None, limit=BAND_LIMIT, retries=3):
+def query(country_id, min_price=None, max_price=None, limit=BAND_LIMIT, retries=2):
     """Zwraca (count, [offers]) lub (None, [])."""
     for attempt in range(retries):
         try:
             r = requests.post(API_URL, headers=HEADERS,
-                              json=build_body(country_id, limit, min_price, max_price), timeout=60)
+                              json=build_body(country_id, limit, min_price, max_price), timeout=45)
             data = json.loads(r.content.decode("utf-8"))
             if not data.get("success"):
                 msg = data.get("error", {}).get("message", "?")
                 print(f"    ! API blad (<= {max_price}): {msg[-70:]}", file=sys.stderr)
-                time.sleep(1.5 * (attempt + 1)); continue
+                time.sleep(1.2 * (attempt + 1)); continue
             d = data["data"]
             return d.get("count"), d.get("offers", [])
         except Exception as e:
             print(f"    ! wyjatek (proba {attempt+1}): {e}", file=sys.stderr)
-            time.sleep(1.5 * (attempt + 1))
+            time.sleep(1.2 * (attempt + 1))
     return None, []
 
 
@@ -140,24 +142,23 @@ def slim(o):
 
 
 def enumerate_offers(country_id):
-    """Enumeruje WSZYSTKIE oferty kierunku przesuwajac okno cenowe (step-sweep).
-    Odporne na throttling: malo zapytan, sam zweza pasmo gdy trafi limit 300.
+    """Zbiera NAJTANSZE ~MAX_TRACK ofert kierunku, przesuwajac okno cenowe od dolu.
+    Lagodne tempo + twardy limit zapytan = odporne na throttling (burst).
     Zwraca ({key: raw_offer}, total_dostepnych)."""
-    total = count_below(country_id, None)      # 1 lekkie zapytanie: dostepnosc
+    total = count_below(country_id, None)      # 1 lekkie zapytanie: cala dostepnosc
     offers = {}
     lo = 0
     step = STEP_START
-    empties = 0
-    guard = 0
-    while lo <= PRICE_HI and guard < 200:
-        guard += 1
+    fetches = 0
+    while fetches < MAX_FETCHES and len(offers) < MAX_TRACK and lo <= PRICE_HI:
         hi = min(lo + step, PRICE_HI)
         count, band = query(country_id, min_price=(lo or None), max_price=hi, limit=BAND_LIMIT)
+        fetches += 1
         time.sleep(REQ_DELAY)
         if count is None:                      # twardy blad mimo ponowien -> pomijamy pasmo
             lo = hi + 1; continue
         if count >= BAND_LIMIT and step > STEP_MIN:
-            step = max(STEP_MIN, step // 2)    # za szerokie pasmo -> zwez i powtorz ten sam lo
+            step = max(STEP_MIN, step // 2)    # za szerokie pasmo (>limit) -> zwez i powtorz
             continue
         for o in band:
             if not o.get("price"):
@@ -165,19 +166,15 @@ def enumerate_offers(country_id):
             k = offer_key(o)
             if k not in offers or o["price"] < offers[k]["price"]:
                 offers[k] = o
-        # adaptacja szerokosci pasma
+        # adaptacja szerokosci pasma do gestosci
         if count == 0:
-            empties += 1
-        else:
-            empties = 0
-            if count < BAND_LIMIT * 0.4:
-                step = min(STEP_MAX, int(step * 1.6))
-            elif count > BAND_LIMIT * 0.8:
-                step = max(STEP_MIN, int(step * 0.6))
+            step = min(STEP_MAX, step * 2)
+        elif count < BAND_LIMIT * 0.4:
+            step = min(STEP_MAX, int(step * 1.5))
+        elif count > BAND_LIMIT * 0.75:
+            step = max(STEP_MIN, int(step * 0.6))
         if hi >= PRICE_HI:
             break
-        if empties >= 4 and lo > 8000 and len(offers) >= total * 0.9:
-            break                              # przeszlismy zakres ofert
         lo = hi + 1
     return offers, total
 
@@ -253,8 +250,8 @@ def main():
         cheapest = prices[0] if prices else None
         # licznik spadkow w tym przebiegu
         drops = sum(1 for e in active if len(e["hist"]) >= 2 and e["hist"][-1][1] < e["hist"][-2][1])
-        print(f"     enumerowano {len(scraped)}/{total} ofert · nowych {new_cnt} · "
-              f"zmian ceny {changed_cnt} · najtansza {cheapest} zl")
+        print(f"     sledzonych {len(scraped)} najtanszych z {total} dostepnych · "
+              f"nowych {new_cnt} · zmian ceny {changed_cnt} · najtansza {cheapest} zl")
 
         index["destinations"][dest] = {
             "slug": slug, "total": total, "active": len(active),
