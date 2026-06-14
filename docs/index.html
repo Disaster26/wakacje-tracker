@@ -120,6 +120,7 @@
     <input id="search" placeholder="🔎 Szukaj hotelu lub miejscowości…">
     <select id="sort">
       <option value="price">Sortuj: najtańsze</option>
+      <option value="pricedesc">najdroższe</option>
       <option value="drop">największy spadek od startu</option>
       <option value="peak">najmocniej przecenione (od szczytu)</option>
       <option value="rating">najlepiej oceniane</option>
@@ -281,6 +282,7 @@ function filterSort(){
   if(q) arr=arr.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.place||'').toLowerCase().includes(q));
   const chg=e=>e.lastPrice-e.firstPrice, peak=e=>e.lastPrice-e.maxPrice;
   if(sort==='price') arr.sort((a,b)=>a.lastPrice-b.lastPrice);
+  else if(sort==='pricedesc') arr.sort((a,b)=>b.lastPrice-a.lastPrice);
   else if(sort==='drop') arr.sort((a,b)=>chg(a)-chg(b));
   else if(sort==='peak') arr.sort((a,b)=>peak(a)-peak(b));
   else if(sort==='rating') arr.sort((a,b)=>(b.rating||0)-(a.rating||0));
