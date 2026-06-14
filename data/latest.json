@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-06-14T18:04:34Z",
+ "generatedAt": "2026-06-14T18:25:58Z",
  "config": {
   "departureDate": "2026-06-28",
   "arrivalDate": "2026-07-12",
@@ -11,7 +11,7 @@
  "destinations": {
   "Egipt": {
    "summary": {
-    "ts": "2026-06-14T18:04:59Z",
+    "ts": "2026-06-14T18:26:28Z",
     "dest": "Egipt",
     "count": 737,
     "band": 4405,
@@ -265,7 +265,7 @@
   },
   "Turcja": {
    "summary": {
-    "ts": "2026-06-14T18:06:35Z",
+    "ts": "2026-06-14T18:26:46Z",
     "dest": "Turcja",
     "count": 1695,
     "band": 4452,
@@ -519,7 +519,7 @@
   },
   "Tunezja": {
    "summary": {
-    "ts": "2026-06-14T18:06:54Z",
+    "ts": "2026-06-14T18:27:01Z",
     "dest": "Tunezja",
     "count": 161,
     "band": 5906,
@@ -773,9 +773,9 @@
   },
   "Grecja": {
    "summary": {
-    "ts": "2026-06-14T18:07:35Z",
+    "ts": "2026-06-14T18:27:43Z",
     "dest": "Grecja",
-    "count": 937,
+    "count": 938,
     "band": 4358,
     "bandCount": 58,
     "minPrice": 2099,
