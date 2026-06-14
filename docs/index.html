@@ -4,13 +4,11 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#0f1720">
-<title>Tracker cen wycieczek — last minute</title>
+<title>Tracker cen wycieczek — historia per oferta</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
-  :root{
-    --bg:#0f1720; --card:#18222e; --card2:#1f2b39; --text:#e8edf2; --muted:#9fb0c0;
-    --line:#2a3a4d; --accent:#3ea6ff; --green:#39d98a; --red:#ff6b6b; --amber:#ffcf5c;
-  }
+  :root{--bg:#0f1720;--card:#18222e;--card2:#1f2b39;--text:#e8edf2;--muted:#9fb0c0;
+    --line:#2a3a4d;--accent:#3ea6ff;--green:#39d98a;--red:#ff6b6b;--amber:#ffcf5c;}
   *{box-sizing:border-box}
   html{-webkit-text-size-adjust:100%}
   body{margin:0;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;
@@ -18,293 +16,259 @@
   header{padding:18px 16px 6px;max-width:1100px;margin:0 auto}
   h1{font-size:20px;margin:0 0 4px}
   .sub{color:var(--muted);font-size:13px}
-  .wrap{max-width:1100px;margin:0 auto;padding:10px 16px 60px}
-  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:14px 0}
-  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
-  .card h3{margin:0 0 6px;font-size:13px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
-  .price{font-size:26px;font-weight:700;line-height:1.1}
-  .delta{font-size:12.5px;margin-top:5px}
-  .up{color:var(--red)} .down{color:var(--green)} .flat{color:var(--muted)}
-  .meta{font-size:11.5px;color:var(--muted);margin-top:6px}
-  .signal{font-size:12.5px;margin-top:7px;font-weight:600}
-  .section-title{font-size:16px;margin:24px 0 4px;display:flex;align-items:center;gap:8px}
-  .hint{color:var(--muted);font-size:12px;margin:0 0 8px}
-  .chartbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin:12px 0}
-  .chartbox h2{font-size:15px;margin:0 0 10px}
-  .chart-h{position:relative;height:300px}
-  @media(max-width:640px){.chart-h{height:230px}}
-  .tabs{display:flex;gap:7px;flex-wrap:wrap;margin:8px 0 6px}
-  .tab{background:var(--card2);border:1px solid var(--line);color:var(--text);padding:7px 13px;
-       border-radius:20px;cursor:pointer;font-size:13px;-webkit-tap-highlight-color:transparent}
-  .tab.active{background:var(--accent);border-color:var(--accent);color:#04121f;font-weight:600}
-  table{width:100%;border-collapse:collapse;font-size:13px}
-  th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line)}
-  th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.04em}
-  td.num{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .wrap{max-width:1100px;margin:0 auto;padding:10px 16px 70px}
+  .cards{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px;margin:14px 0}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px}
+  .card h3{margin:0 0 5px;font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+  .card .big{font-size:23px;font-weight:700;line-height:1.1}
+  .card .sm{font-size:12px;color:var(--muted);margin-top:5px}
+  .up{color:var(--red)}.down{color:var(--green)}.flat{color:var(--muted)}
+  .tabs{display:flex;gap:8px;flex-wrap:wrap;margin:16px 0 8px}
+  .tab{background:var(--card2);border:1px solid var(--line);color:var(--text);padding:8px 16px;
+       border-radius:20px;cursor:pointer;font-size:14px;-webkit-tap-highlight-color:transparent}
+  .tab.active{background:var(--accent);border-color:var(--accent);color:#04121f;font-weight:700}
+  .controls{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin:6px 0 10px}
+  input,select{background:var(--card2);border:1px solid var(--line);color:var(--text);
+       border-radius:9px;padding:9px 11px;font-size:13px;outline:none}
+  input{flex:1;min-width:140px}
+  input:focus,select:focus{border-color:var(--accent)}
+  .chk{display:flex;align-items:center;gap:6px;font-size:13px;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .chk input{flex:none;min-width:auto;accent-color:var(--accent)}
+  .count{font-size:12px;color:var(--muted);margin:2px 0 8px}
+  .list{display:flex;flex-direction:column;gap:8px}
+  .offer{background:var(--card);border:1px solid var(--line);border-radius:11px;padding:11px 13px;
+         display:grid;grid-template-columns:1fr auto;gap:6px 12px;cursor:pointer;transition:border-color .12s}
+  .offer:hover{border-color:var(--accent)}
+  .offer .nm{font-weight:600;font-size:14.5px}
+  .offer .loc{font-size:12px;color:var(--muted);margin-top:2px}
+  .offer .tags{font-size:11.5px;color:var(--muted);margin-top:4px;display:flex;gap:8px;flex-wrap:wrap}
+  .right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:3px;justify-content:center}
+  .price{font-size:19px;font-weight:700;font-variant-numeric:tabular-nums}
+  .chg{font-size:12px;font-weight:600}
+  .spark{margin-top:2px}
+  .badge{font-size:10px;padding:1px 7px;border-radius:8px;font-weight:600}
+  .b-drop{background:#2a4a35;color:var(--green)}
+  .b-up{background:#4a2a2a;color:var(--red)}
+  .b-sold{background:#3a3320;color:var(--amber)}
+  .b-new{background:#23364a;color:var(--accent)}
+  .chartbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin:14px 0}
+  .chartbox h2{font-size:15px;margin:0 0 10px;display:flex;gap:8px;align-items:center}
   .pill{font-size:11px;padding:2px 7px;border-radius:10px;background:var(--card2);color:var(--muted);font-weight:400}
-  a{color:var(--accent);text-decoration:none}
-  a:active,a:hover{text-decoration:underline}
-  .old{color:var(--muted);text-decoration:line-through;font-size:11px;margin-left:6px}
-  .badge{font-size:10.5px;padding:1px 6px;border-radius:8px;background:#2a4a35;color:var(--green);margin-left:6px}
-  .statgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px;margin:8px 0}
-  .stat{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px}
-  .stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-  .stat .v{font-size:18px;font-weight:700;margin-top:4px}
-  .stat .d{font-size:12px;color:var(--muted);margin-top:3px}
+  .chart-h{position:relative;height:260px}
+  a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   .err{color:var(--amber);padding:16px;display:block}
   footer{color:var(--muted);font-size:12px;text-align:center;padding:22px 16px}
-  /* --- tabela jako karty na telefonie --- */
-  @media(max-width:680px){
-    h1{font-size:18px}
-    table,tbody,tr,td{display:block;width:100%}
-    thead{display:none}
-    tr{margin-bottom:10px;border:1px solid var(--line);border-radius:10px;padding:8px 12px;background:var(--card2)}
-    td{border:none;padding:3px 0;display:flex;justify-content:space-between;gap:12px;text-align:right}
-    td::before{content:attr(data-label);color:var(--muted);font-size:11px;text-transform:uppercase;
-               letter-spacing:.03em;text-align:left;flex:0 0 auto;font-weight:600}
-    td.num{text-align:right}
-    td.hotel{font-size:14px;font-weight:600}
-    td.hotel::before{align-self:center}
-  }
+  .more{background:var(--card2);border:1px solid var(--line);color:var(--text);border-radius:10px;
+        padding:11px;text-align:center;cursor:pointer;font-size:13px;margin-top:8px}
+  /* modal */
+  .modal{position:fixed;inset:0;background:rgba(4,8,14,.72);display:none;align-items:center;
+         justify-content:center;padding:16px;z-index:50}
+  .modal.open{display:flex}
+  .sheet{background:var(--card);border:1px solid var(--line);border-radius:14px;max-width:680px;width:100%;
+         max-height:88vh;overflow:auto;padding:18px}
+  .sheet h2{margin:0 0 2px;font-size:18px}
+  .sheet .loc{color:var(--muted);font-size:13px;margin-bottom:10px}
+  .kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;margin:10px 0}
+  .kv div{background:var(--card2);border-radius:9px;padding:8px 10px}
+  .kv .k{font-size:11px;color:var(--muted);text-transform:uppercase}
+  .kv .v{font-size:15px;font-weight:600;margin-top:2px}
+  .close{float:right;background:var(--card2);border:1px solid var(--line);color:var(--text);
+         border-radius:9px;padding:6px 12px;cursor:pointer;font-size:14px}
+  @media(max-width:560px){h1{font-size:18px}.card .big{font-size:20px}.price{font-size:17px}}
 </style>
 </head>
 <body>
 <header>
-  <h1>✈️ Tracker cen wycieczek — last minute</h1>
+  <h1>✈️ Tracker cen wycieczek — historia per oferta</h1>
   <div class="sub" id="cfg">Ładowanie…</div>
 </header>
 <div class="wrap">
   <div class="cards" id="cards"></div>
 
-  <div class="section-title">📊 Statystyki i wskazówki</div>
-  <p class="hint">Im więcej dni zbierania, tym pewniejsze wskazówki. Część z nich potrzebuje kilku dni danych.</p>
-  <div class="statgrid" id="stats"></div>
-
   <div class="chartbox">
-    <h2>Najtańsza cena w czasie <span class="pill">za 2 osoby</span></h2>
-    <div class="chart-h"><canvas id="priceChart"></canvas></div>
+    <h2>Najtańsza cena na kierunek w czasie <span class="pill">za 2 osoby</span></h2>
+    <div class="chart-h"><canvas id="ovChart"></canvas></div>
   </div>
 
-  <div class="chartbox">
-    <h2>Liczba dostępnych ofert <span class="pill">spadek = wyprzedaje się</span></h2>
-    <div class="chart-h"><canvas id="countChart"></canvas></div>
+  <div class="tabs" id="tabs"></div>
+  <div class="controls">
+    <input id="search" placeholder="🔎 Szukaj hotelu lub miejscowości…">
+    <select id="sort">
+      <option value="price">Sortuj: najtańsze</option>
+      <option value="drop">największy spadek od startu</option>
+      <option value="peak">najmocniej przecenione (od szczytu)</option>
+      <option value="rating">najlepiej oceniane</option>
+    </select>
+    <label class="chk"><input type="checkbox" id="fActive" checked> dostępne</label>
+    <label class="chk"><input type="checkbox" id="fDrop"> tylko przecenione</label>
   </div>
-
-  <div class="chartbox">
-    <h2>Najtańsze oferty teraz</h2>
-    <div class="tabs" id="tabs"></div>
-    <table id="offersTable"></table>
-  </div>
+  <div class="count" id="count"></div>
+  <div class="list" id="list"></div>
+  <div class="more" id="more" style="display:none">Pokaż więcej ▾</div>
 </div>
 <footer id="foot"></footer>
 
+<div class="modal" id="modal"><div class="sheet" id="sheet"></div></div>
+
 <script>
-const COLORS = {Egipt:'#ffcf5c', Turcja:'#3ea6ff', Tunezja:'#39d98a', Grecja:'#ff6b6b'};
-const WD = ['niedz.','pon.','wt.','śr.','czw.','pt.','sob.'];
-const fmt  = n => n==null ? '—' : new Intl.NumberFormat('pl-PL').format(Math.round(n))+' zł';
-const fmtDate = s => new Date(s).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
-const median = a => { if(!a.length) return null; const s=[...a].sort((x,y)=>x-y); const m=s.length>>1;
-                      return s.length%2 ? s[m] : (s[m-1]+s[m])/2; };
+const COLORS={Egipt:'#ffcf5c',Turcja:'#3ea6ff',Tunezja:'#39d98a',Grecja:'#ff6b6b'};
+const fmt=n=>n==null?'—':new Intl.NumberFormat('pl-PL').format(Math.round(n))+' zł';
+const fmtD=s=>new Date(s).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
+const PAGE=80;
+let STATE={dest:null,offersByDest:{},shown:PAGE,modalChart:null};
 
 async function load(){
-  let history, latest;
+  let index,history;
   try{
-    history = await (await fetch('data/history.json?t='+Date.now())).json();
-    latest  = await (await fetch('data/latest.json?t='+Date.now())).json();
+    index=await(await fetch('data/index.json?t='+Date.now())).json();
+    history=await(await fetch('data/history.json?t='+Date.now())).json();
   }catch(e){
-    document.getElementById('cfg').innerHTML =
-      '<span class="err">Brak danych jeszcze — poczekaj na pierwszy przebieg GitHub Actions (lub odpal scraper lokalnie).</span>';
-    return;
+    document.getElementById('cfg').innerHTML='<span class="err">Brak danych — poczekaj na pierwszy przebieg GitHub Actions.</span>';return;
   }
-  render(history, latest);
-}
-
-function groupByDest(history){
-  const g = {};
-  for(const r of history){ (g[r.dest] ||= []).push(r); }
-  for(const k in g){ g[k].sort((a,b)=>a.ts.localeCompare(b.ts)); }
-  return g;
-}
-
-function render(history, latest){
-  const c = latest.config;
-  document.getElementById('cfg').textContent =
-    `Wylot ${c.departureDate} – ${c.arrivalDate} · ${c.durationMin}–${c.durationMax} dni · ${c.adults} os. · lotnisko: ${c.departureCity}`;
-  document.getElementById('foot').textContent =
-    'Ostatnia aktualizacja: ' + fmtDate(latest.generatedAt) + ' · źródło: wakacje.pl · dane zbierane 2× dziennie';
-
-  const byDest = groupByDest(history);
-  const dests = Object.keys(latest.destinations);
-
-  // ---------------- KARTY KIERUNKÓW ----------------
-  const cards = document.getElementById('cards');
-  cards.innerHTML = '';
+  const dests=Object.keys(index.destinations);
   for(const d of dests){
-    const series = (byDest[d]||[]).filter(p=>p.minPrice!=null);
-    const cur = latest.destinations[d].summary.minPrice;
-    const first = series.length ? series[0].minPrice : null;
-    const prices = series.map(p=>p.minPrice);
-    const lo = prices.length?Math.min(...prices):null, med = median(prices);
+    const slug=index.destinations[d].slug;
+    try{ STATE.offersByDest[d]=(await(await fetch('data/offers_'+slug+'.json?t='+Date.now())).json()).offers; }
+    catch(e){ STATE.offersByDest[d]={}; }
+  }
+  render(index,history,dests);
+}
 
-    let delta='—', cls='flat';
-    if(first && cur!=null){
-      const diff=cur-first, pct=diff/first*100;
-      if(Math.abs(diff)>=1){ cls=diff<0?'down':'up';
-        delta=`${diff<0?'▼':'▲'} ${fmt(Math.abs(diff))} (${pct>0?'+':''}${pct.toFixed(1)}%) od startu`; }
-      else delta='bez zmian od startu';
-    }
-    // sygnał "czy kupować"
-    let sig='';
-    if(prices.length>=3){
-      if(cur<=lo*1.03) sig='<span class="down">🟢 Dobry moment — blisko minimum</span>';
-      else if(cur>=med) sig='<span class="up">🔴 Drożej niż zwykle</span>';
-      else sig='<span class="flat">🟡 Średnia cena</span>';
-    } else sig='<span class="flat">⏳ Zbieram dane…</span>';
+function render(index,history,dests){
+  const c=index.config;
+  document.getElementById('cfg').textContent=
+    `Wylot ${c.departureDate} – ${c.arrivalDate} · ${c.durationMin}–${c.durationMax} dni · ${c.adults} os. · lotnisko: ${c.departureCity}`;
+  document.getElementById('foot').textContent=
+    'Ostatnia aktualizacja: '+fmtD(index.generatedAt)+' · źródło: wakacje.pl · zbierane 2× dziennie';
 
-    cards.insertAdjacentHTML('beforeend', `
+  // karty
+  const cards=document.getElementById('cards');cards.innerHTML='';
+  for(const d of dests){
+    const s=index.destinations[d];
+    cards.insertAdjacentHTML('beforeend',`
       <div class="card" style="border-top:3px solid ${COLORS[d]||'#3ea6ff'}">
         <h3>${d}</h3>
-        <div class="price">${fmt(cur)}</div>
-        <div class="delta ${cls}">${delta}</div>
-        <div class="signal">${sig}</div>
-        <div class="meta">${latest.destinations[d].summary.count} ofert dostępnych · mediana ${fmt(med)}</div>
+        <div class="big">${fmt(s.cheapest)}</div>
+        <div class="sm">${s.active} dostępnych ofert<br>${s.tracked} śledzonych łącznie</div>
+        <div class="sm">${s.dropsThisRun?`<span class="down">▼ ${s.dropsThisRun} staniało</span> · `:''}${s.priceChangesThisRun||0} zmian ceny</div>
       </div>`);
   }
 
-  // ---------------- STATYSTYKI / WSKAZÓWKI ----------------
-  renderStats(history, byDest, latest, dests);
+  // wykres przeglądowy
+  const labels=[...new Set(history.map(r=>r.ts))].sort();
+  const ds=dests.map(d=>{const m=Object.fromEntries(history.filter(r=>r.dest===d).map(r=>[r.ts,r.minPrice]));
+    return{label:d,data:labels.map(t=>m[t]??null),borderColor:COLORS[d]||'#3ea6ff',
+      backgroundColor:(COLORS[d]||'#3ea6ff')+'22',tension:.25,spanGaps:true,pointRadius:2,borderWidth:2};});
+  new Chart(document.getElementById('ovChart'),{type:'line',
+    data:{labels:labels.map(fmtD),datasets:ds},
+    options:{responsive:true,maintainAspectRatio:false,interaction:{mode:'index',intersect:false},
+      plugins:{legend:{labels:{color:'#e8edf2',boxWidth:14,font:{size:12}}}},
+      scales:{x:{ticks:{color:'#9fb0c0',maxTicksLimit:6,font:{size:10}},grid:{color:'#22303f'}},
+              y:{ticks:{color:'#9fb0c0',font:{size:11}},grid:{color:'#22303f'}}}}});
 
-  // ---------------- WYKRESY ----------------
-  const labels = [...new Set(history.map(r=>r.ts))].sort();
-  const lbl = labels.map(fmtDate);
-  const mkData = field => dests.map(d=>{
-    const map = Object.fromEntries((byDest[d]||[]).map(r=>[r.ts, r[field]]));
-    return {label:d, data:labels.map(t=>map[t] ?? null), borderColor:COLORS[d]||'#3ea6ff',
-            backgroundColor:(COLORS[d]||'#3ea6ff')+'22', tension:.25, spanGaps:true, pointRadius:2, borderWidth:2};
+  // taby
+  const tabs=document.getElementById('tabs');tabs.innerHTML='';
+  for(const d of dests){
+    const b=document.createElement('div');b.className='tab';b.textContent=d+` (${index.destinations[d].active})`;
+    b.onclick=()=>{STATE.dest=d;[...tabs.children].forEach(x=>x.classList.remove('active'));b.classList.add('active');STATE.shown=PAGE;drawList();};
+    tabs.appendChild(b);
+  }
+  STATE.dest=dests[0];tabs.children[0].classList.add('active');
+
+  ['search','sort','fActive','fDrop'].forEach(id=>{
+    document.getElementById(id).addEventListener('input',()=>{STATE.shown=PAGE;drawList();});
   });
-  const baseOpts = {responsive:true, maintainAspectRatio:false, interaction:{mode:'index',intersect:false},
-    plugins:{legend:{labels:{color:'#e8edf2',boxWidth:14,font:{size:12}}}},
-    scales:{x:{ticks:{color:'#9fb0c0',maxRotation:0,autoSkip:true,maxTicksLimit:6,font:{size:10}},grid:{color:'#22303f'}},
-            y:{ticks:{color:'#9fb0c0',font:{size:11}},grid:{color:'#22303f'}}}};
-  new Chart(document.getElementById('priceChart'),
-    {type:'line', data:{labels:lbl, datasets:mkData('minPrice')}, options:baseOpts});
-  new Chart(document.getElementById('countChart'),
-    {type:'line', data:{labels:lbl, datasets:mkData('count')}, options:baseOpts});
-
-  // ---------------- TABELA OFERT ----------------
-  const tabs = document.getElementById('tabs');
-  const drawTable = d => {
-    [...tabs.children].forEach(t=>t.classList.toggle('active', t.dataset.d===d));
-    const offers = latest.destinations[d].offers || [];
-    document.getElementById('offersTable').innerHTML =
-      `<thead><tr><th>Hotel</th><th>Lokalizacja</th><th>Termin</th><th>Dni</th>
-        <th>Wyżywienie</th><th>Wylot</th><th>Operator</th><th class="num">Cena</th></tr></thead><tbody>` +
-      offers.map(o=>{
-        const disc = o.priceOld && o.priceOld>o.price ? `<span class="badge">-${fmt(o.priceOld-o.price)}</span>`:'';
-        return `<tr>
-        <td class="hotel" data-label="Hotel"><a href="${o.url}" target="_blank" rel="noopener">${o.name||'—'}</a></td>
-        <td data-label="Lokalizacja">${o.place||'—'}</td>
-        <td data-label="Termin">${o.departureDate||''} → ${o.returnDate||''}</td>
-        <td class="num" data-label="Dni">${o.duration||''}</td>
-        <td data-label="Wyżywienie">${o.service||''}</td>
-        <td data-label="Wylot">${o.departureFrom||'—'}</td>
-        <td data-label="Operator">${o.operator||''}</td>
-        <td class="num" data-label="Cena"><b>${fmt(o.price)}</b>${o.priceOld?`<span class="old">${fmt(o.priceOld)}</span>`:''}${disc}</td>
-      </tr>`;}).join('') + '</tbody>';
-  };
-  tabs.innerHTML='';
-  for(const d of dests){
-    const b=document.createElement('div'); b.className='tab'; b.dataset.d=d; b.textContent=d;
-    b.onclick=()=>drawTable(d); tabs.appendChild(b);
-  }
-  drawTable(dests[0]);
+  document.getElementById('more').onclick=()=>{STATE.shown+=PAGE;drawList();};
+  drawList();
 }
 
-function renderStats(history, byDest, latest, dests){
-  const box = document.getElementById('stats');
-  const out = [];
-  const days = new Set(history.map(r=>r.ts.slice(0,10))).size;
+function entryKey(e){return e.hotelId+'|'+e.departureDate+'|'+e.service+'|'+e.operator;}
 
-  // 1) Ranking okazji: kierunek najtańszy względem własnej historii (cur/median)
-  const ranked = dests.map(d=>{
-    const pr=(byDest[d]||[]).map(p=>p.minPrice).filter(x=>x!=null);
-    const cur=latest.destinations[d].summary.minPrice, med=median(pr);
-    return {d, cur, med, ratio: med?cur/med:1};
-  }).filter(x=>x.cur!=null).sort((a,b)=>a.ratio-b.ratio);
-  if(ranked.length){
-    const best=ranked[0];
-    out.push(stat('💎 Najlepsza okazja teraz', best.d+' — '+fmt(best.cur),
-      days>=3 ? `${((1-best.ratio)*100).toFixed(0)}% poniżej swojej mediany` : 'wg dotychczasowych danych'));
-  }
-
-  // 2) Największy spadek od startu
-  let mover=null;
-  for(const d of dests){
-    const s=(byDest[d]||[]).filter(p=>p.minPrice!=null);
-    if(s.length>=2){ const ch=s[s.length-1].minPrice-s[0].minPrice;
-      if(!mover||ch<mover.ch) mover={d,ch,pct:ch/s[0].minPrice*100}; }
-  }
-  if(mover && mover.ch<0)
-    out.push(stat('📉 Najbardziej staniało', mover.d+' — '+fmt(mover.ch).replace('-',''),
-      `taniej o ${Math.abs(mover.pct).toFixed(1)}% od startu`));
-  else if(mover)
-    out.push(stat('📉 Najbardziej staniało', 'jeszcze nic',
-      'ceny na razie nie spadły — zbieram dalej'));
-
-  // 3) Najlepszy dzień tygodnia na zakup (znormalizowane ceny, łączymy kierunki)
-  const wdSum={}, wdN={};
-  for(const d of dests){
-    const pr=(byDest[d]||[]).filter(p=>p.minPrice!=null);
-    const med=median(pr.map(p=>p.minPrice)); if(!med) continue;
-    for(const p of pr){ const wd=new Date(p.ts).getDay(); const norm=p.minPrice/med;
-      wdSum[wd]=(wdSum[wd]||0)+norm; wdN[wd]=(wdN[wd]||0)+1; }
-  }
-  const wdAvg=Object.keys(wdN).map(k=>({wd:+k, avg:wdSum[k]/wdN[k]})).sort((a,b)=>a.avg-b.avg);
-  if(wdAvg.length>=3)
-    out.push(stat('📅 Najlepszy dzień na zakup', WD[wdAvg[0].wd],
-      `średnio ${((1-wdAvg[0].avg)*100).toFixed(0)}% taniej niż w pozostałe dni`));
-  else
-    out.push(stat('📅 Najlepszy dzień na zakup', '⏳ Zbieram dane',
-      `potrzeba kilku dni (mam ${days} ${days===1?'dzień':'dni'})`));
-
-  // 4) Lepsza pora: rano vs wieczór (godzina UTC < 12 = poranny zrzut)
-  let amS=0,amN=0,pmS=0,pmN=0;
-  for(const d of dests){
-    const pr=(byDest[d]||[]).filter(p=>p.minPrice!=null);
-    const med=median(pr.map(p=>p.minPrice)); if(!med) continue;
-    for(const p of pr){ const h=new Date(p.ts).getUTCHours(); const norm=p.minPrice/med;
-      if(h<12){amS+=norm;amN++} else {pmS+=norm;pmN++} }
-  }
-  if(amN&&pmN){ const am=amS/amN, pm=pmS/pmN;
-    out.push(stat('🕐 Lepsza pora dnia', am<pm?'rano':'wieczorem',
-      `różnica ok. ${(Math.abs(am-pm)*100).toFixed(0)}% (rano vs wieczór)`));
-  } else
-    out.push(stat('🕐 Lepsza pora dnia', '⏳ Zbieram dane', 'porównam po kilku pomiarach'));
-
-  // 5) Największa promocja teraz (priceOld vs price)
-  let promo=null;
-  for(const d of dests) for(const o of (latest.destinations[d].offers||[]))
-    if(o.priceOld && o.priceOld>o.price){ const disc=o.priceOld-o.price;
-      if(!promo||disc>promo.disc) promo={d,o,disc,pct:disc/o.priceOld*100}; }
-  if(promo)
-    out.push(stat('🔥 Największa promocja', `−${fmt(promo.disc)}`,
-      `${promo.o.name} (${promo.d}) · ${promo.pct.toFixed(0)}% taniej`));
-
-  // 6) Zakres cen w okresie (najtańszy kierunek)
-  if(ranked.length){
-    const all=dests.map(d=>{const pr=(byDest[d]||[]).map(p=>p.minPrice).filter(x=>x!=null);
-      return {d,lo:pr.length?Math.min(...pr):null};}).filter(x=>x.lo!=null).sort((a,b)=>a.lo-b.lo);
-    if(all.length) out.push(stat('🏆 Najtańszy kierunek (rekord)', all[0].d+' — '+fmt(all[0].lo),
-      'najniższa cena zaobserwowana od startu'));
-  }
-
-  box.innerHTML = out.join('') ||
-    '<div class="stat"><div class="k">Statystyki</div><div class="d">Pojawią się po pierwszych pomiarach.</div></div>';
+function filterSort(){
+  const offers=STATE.offersByDest[STATE.dest]||{};
+  const q=document.getElementById('search').value.trim().toLowerCase();
+  const onlyActive=document.getElementById('fActive').checked;
+  const onlyDrop=document.getElementById('fDrop').checked;
+  const sort=document.getElementById('sort').value;
+  let arr=Object.entries(offers).map(([k,e])=>({k,...e}));
+  if(onlyActive) arr=arr.filter(e=>e.active);
+  if(onlyDrop) arr=arr.filter(e=>e.lastPrice<e.firstPrice||e.lastPrice<e.maxPrice);
+  if(q) arr=arr.filter(e=>(e.name||'').toLowerCase().includes(q)||(e.place||'').toLowerCase().includes(q));
+  const chg=e=>e.lastPrice-e.firstPrice, peak=e=>e.lastPrice-e.maxPrice;
+  if(sort==='price') arr.sort((a,b)=>a.lastPrice-b.lastPrice);
+  else if(sort==='drop') arr.sort((a,b)=>chg(a)-chg(b));
+  else if(sort==='peak') arr.sort((a,b)=>peak(a)-peak(b));
+  else if(sort==='rating') arr.sort((a,b)=>(b.rating||0)-(a.rating||0));
+  return arr;
 }
 
-function stat(k,v,d){
-  return `<div class="stat"><div class="k">${k}</div><div class="v">${v}</div><div class="d">${d||''}</div></div>`;
+function sparkline(hist,w=70,h=22){
+  if(!hist||hist.length<2) return '';
+  const ps=hist.map(p=>p[1]);const mn=Math.min(...ps),mx=Math.max(...ps),rng=mx-mn||1;
+  const pts=hist.map((p,i)=>{const x=i/(hist.length-1)*w;const y=h-2-((p[1]-mn)/rng)*(h-4);return x.toFixed(1)+','+y.toFixed(1);}).join(' ');
+  const col=ps[ps.length-1]<ps[0]?'#39d98a':ps[ps.length-1]>ps[0]?'#ff6b6b':'#9fb0c0';
+  return `<svg class="spark" width="${w}" height="${h}"><polyline points="${pts}" fill="none" stroke="${col}" stroke-width="1.6"/></svg>`;
 }
+
+function drawList(){
+  const arr=filterSort();
+  const list=document.getElementById('list');
+  const slice=arr.slice(0,STATE.shown);
+  document.getElementById('count').textContent=`${arr.length} ofert · pokazano ${Math.min(slice.length,arr.length)}`;
+  list.innerHTML=slice.map(e=>{
+    const chg=e.lastPrice-e.firstPrice, pk=e.lastPrice-e.maxPrice;
+    let chgHtml='',badge='';
+    if(chg<0){chgHtml=`<span class="chg down">▼ ${fmt(-chg)}</span>`;badge=`<span class="badge b-drop">staniało</span>`;}
+    else if(chg>0){chgHtml=`<span class="chg up">▲ ${fmt(chg)}</span>`;badge=`<span class="badge b-up">drożej</span>`;}
+    else if(e.n<=1){badge=`<span class="badge b-new">nowa</span>`;}
+    if(!e.active) badge=`<span class="badge b-sold">wyprzedana</span>`;
+    return `<div class="offer" data-k="${encodeURIComponent(e.k)}">
+      <div>
+        <div class="nm">${e.name||'—'} ${badge}</div>
+        <div class="loc">${e.place||''}</div>
+        <div class="tags"><span>📅 ${e.departureDate} → ${e.returnDate}</span><span>🛏 ${e.duration} dni</span>
+          <span>🍽 ${e.service||''}</span>${e.rating?`<span>⭐ ${e.rating}</span>`:''}<span>· ${e.operator||''}</span></div>
+      </div>
+      <div class="right">
+        <div class="price">${fmt(e.lastPrice)}</div>
+        ${chgHtml||(pk<0?`<span class="chg down">▼ ${fmt(-pk)} od szczytu</span>`:'')}
+        ${sparkline(e.hist)}
+      </div>
+    </div>`;
+  }).join('')||'<div class="card">Brak ofert dla tych filtrów.</div>';
+  document.getElementById('more').style.display=arr.length>STATE.shown?'block':'none';
+  list.querySelectorAll('.offer').forEach(el=>el.onclick=()=>openModal(decodeURIComponent(el.dataset.k)));
+}
+
+function openModal(k){
+  const e=(STATE.offersByDest[STATE.dest]||{})[k];if(!e)return;
+  const chg=e.lastPrice-e.firstPrice;
+  const sheet=document.getElementById('sheet');
+  sheet.innerHTML=`<button class="close" onclick="closeModal()">✕ Zamknij</button>
+    <h2>${e.name||'—'}</h2><div class="loc">${e.place||''} · ${e.operator||''}</div>
+    <div class="kv">
+      <div><div class="k">Cena teraz</div><div class="v">${fmt(e.lastPrice)}</div></div>
+      <div><div class="k">Od startu</div><div class="v ${chg<0?'down':chg>0?'up':'flat'}">${chg===0?'bez zmian':(chg<0?'▼ ':'▲ ')+fmt(Math.abs(chg))}</div></div>
+      <div><div class="k">Min / Max</div><div class="v">${fmt(e.minPrice)} / ${fmt(e.maxPrice)}</div></div>
+      <div><div class="k">Termin</div><div class="v">${e.departureDate} → ${e.returnDate}</div></div>
+      <div><div class="k">Długość / wyż.</div><div class="v">${e.duration} dni · ${e.service||''}</div></div>
+      <div><div class="k">Status</div><div class="v">${e.active?'✅ dostępna':'⚠️ wyprzedana'}</div></div>
+    </div>
+    <a href="${e.url}" target="_blank" rel="noopener">Zobacz na wakacje.pl →</a>
+    <div class="chart-h" style="margin-top:12px"><canvas id="ofChart"></canvas></div>`;
+  document.getElementById('modal').classList.add('open');
+  if(STATE.modalChart)STATE.modalChart.destroy();
+  const col=COLORS[STATE.dest]||'#3ea6ff';
+  STATE.modalChart=new Chart(document.getElementById('ofChart'),{type:'line',
+    data:{labels:e.hist.map(p=>fmtD(p[0])),datasets:[{label:'Cena',data:e.hist.map(p=>p[1]),
+      borderColor:col,backgroundColor:col+'22',fill:true,stepped:false,tension:.2,pointRadius:3}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},
+      scales:{x:{ticks:{color:'#9fb0c0',maxTicksLimit:6,font:{size:10}},grid:{color:'#22303f'}},
+              y:{ticks:{color:'#9fb0c0',font:{size:11}},grid:{color:'#22303f'}}}}});
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');
+  if(STATE.modalChart){STATE.modalChart.destroy();STATE.modalChart=null;}}
+document.getElementById('modal').onclick=e=>{if(e.target.id==='modal')closeModal();};
 
 load();
 </script>

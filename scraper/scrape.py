@@ -1,63 +1,55 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Tracker cen wycieczek last-minute z wakacje.pl (agregator: Rainbow, Itaka, TUI, Coral itd.)
+Tracker cen wycieczek z wakacje.pl — HISTORIA CENY KAZDEJ OFERTY Z OSOBNA.
 
-Pobiera ceny dla wybranych kierunków przez wewnetrzne API wakacje.pl
-(POST /v2/api/offers -> silnik storebox-searchengine) i zapisuje migawke (snapshot)
-do plikow danych. Uruchamiany 2x dziennie przez GitHub Actions buduje historie cen
-"w przod" (historii wstecz sie nie da pobrac).
+Dla kazdego kierunku enumeruje WSZYSTKIE oferty w zadanym oknie (daty + dlugosc),
+przesuwajac okno cenowe (minPrice/maxPrice) tak, by w jednym zapytaniu zmiescic
+caly przedzial (API zwraca max ~300 ofert/zapytanie, ranking jest niedeterministyczny,
+ale banding po cenie jest rozlaczny i deterministyczny).
 
-Konfiguracja na gorze pliku — smialo edytuj kierunki/daty/dlugosc.
+Kazda oferta ma stabilny klucz (hotel|daty|wyzywienie|operator) i wlasna historie cen.
+Uruchamiany 2x dziennie przez GitHub Actions buduje historie "w przod".
 """
 
 import json
 import os
 import sys
 import time
-import statistics
+import re
 from datetime import datetime, timezone
 
 import requests
 
 # --------------------------------------------------------------------------
-#  KONFIGURACJA  (edytuj wedle potrzeb)
+#  KONFIGURACJA
 # --------------------------------------------------------------------------
-
-# Kierunki: nazwa wyswietlana -> countryId w systemie wakacje.pl
-DESTINATIONS = {
-    "Egipt":   37,
-    "Turcja":  16,
-    "Tunezja": 65,
-    "Grecja":  29,
+DESTINATIONS = {            # nazwa -> countryId wakacje.pl
+    "Egipt":  37,
+    "Turcja": 16,
 }
+DEPARTURE_DATE = "2026-06-28"
+ARRIVAL_DATE   = "2026-07-12"
+DURATION_MIN   = 14
+DURATION_MAX   = 17
+ADULTS         = 2
+DEPARTURE_CITY = None       # None = dowolne lotnisko
 
-DEPARTURE_DATE = "2026-06-28"   # najwczesniejszy wylot (minDate)
-ARRIVAL_DATE   = "2026-07-12"   # najpozniejszy powrot/wylot (maxDate)
-DURATION_MIN   = 14             # min liczba dni
-DURATION_MAX   = 17             # max liczba dni
-ADULTS         = 2              # liczba doroslych
-DEPARTURE_CITY = None           # None = dowolne lotnisko w PL (kod IATA np. "KTW" by zawezic)
-
-# Ranking API jest niedeterministyczny (qsVersion=cx_auction) — przy probkowaniu stron
-# najtansza cena skakalaby. Zamiast tego uzywamy FILTRA CENY (maxPrice) i wyszukiwania
-# binarnego, by deterministycznie zlapac waskie pasmo najtanszych ofert.
-BAND_CAP       = 60            # max ofert w pasmie (limit jednego zapytania -> wszystkie zwracane)
-BAND_ITERS     = 8            # iteracje wyszukiwania binarnego po cenie
-PRICE_HI       = 12000        # gorna granica ceny do wyszukiwania (zl za wszystkich)
-TOP_N_OFFERS   = 15            # ile najtanszych ofert zapisac do tabeli
-
+BAND_LIMIT  = 300           # max ofert na jedno zapytanie (limit API)
+STEP_START  = 800           # poczatkowa szerokosc pasma cenowego (zl)
+STEP_MIN    = 40            # min szerokosc pasma (gdy gesto)
+STEP_MAX    = 8000          # max szerokosc pasma (gdy rzadko)
+PRICE_HI    = 90000         # gorna granica ceny przy enumeracji (zl za wszystkich)
+REQ_DELAY   = 0.7           # odstep miedzy zapytaniami (grzecznosc + unikanie throttlingu)
 # --------------------------------------------------------------------------
 
 API_URL = "https://www.wakacje.pl/v2/api/offers"
 HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
                   "(KHTML, like Gecko) Chrome/124.0 Safari/537.36",
-    "Content-Type": "application/json",
-    "Accept": "application/json",
+    "Content-Type": "application/json", "Accept": "application/json",
     "Accept-Language": "pl-PL,pl;q=0.9",
-    "Origin": "https://www.wakacje.pl",
-    "Referer": "https://www.wakacje.pl/wczasy/",
+    "Origin": "https://www.wakacje.pl", "Referer": "https://www.wakacje.pl/wczasy/",
 }
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -65,8 +57,11 @@ DATA_DIR = os.path.join(ROOT, "data")
 DOCS_DATA_DIR = os.path.join(ROOT, "docs", "data")
 
 
-def build_body(country_id, limit, max_price=None):
-    """Sklada tablice wywolan dla API wakacje.pl (format JSON-RPC)."""
+def slugify(s):
+    return re.sub(r"[^a-z0-9]+", "-", s.lower()).strip("-")
+
+
+def build_body(country_id, limit, min_price=None, max_price=None):
     query = {
         "campTypes": [], "qsVersion": 0, "qsVersionLast": 0,
         "tab": False, "candy": False, "pok": None, "flush": False,
@@ -74,17 +69,13 @@ def build_body(country_id, limit, max_price=None):
         "catalog": None, "roomType": None, "test": None, "year": None, "month": None,
         "rangeDate": None, "withoutLast": 0, "category": False, "not-attribute": False,
         "pageNumber": 1,
-        "departureDate": DEPARTURE_DATE,
-        "arrivalDate": ARRIVAL_DATE,
-        "departure": DEPARTURE_CITY,
-        "type": [],
+        "departureDate": DEPARTURE_DATE, "arrivalDate": ARRIVAL_DATE,
+        "departure": DEPARTURE_CITY, "type": [],
         "duration": {"min": DURATION_MIN, "max": DURATION_MAX},
-        "minPrice": None, "maxPrice": max_price,
+        "minPrice": min_price, "maxPrice": max_price,
         "service": [], "firstminute": None, "attribute": [], "promotion": [],
-        "tourId": None, "search": None,
-        "minCategory": None, "maxCategory": 50,
-        "sort": None, "order": None,   # serwerowe sortowanie po cenie rzuca 400 -> sortujemy lokalnie
-        "rank": None,
+        "tourId": None, "search": None, "minCategory": None, "maxCategory": 50,
+        "sort": None, "order": None, "rank": None,
         "withoutTours": [], "withoutCountry": [], "withoutTrips": [],
         "rooms": [{"adult": ADULTS, "kid": 0, "ages": [], "inf": None}],
         "offerCode": None,
@@ -102,18 +93,17 @@ def build_body(country_id, limit, max_price=None):
     return [{"method": "search.tripsSearch", "params": params}]
 
 
-def query(country_id, max_price=None, limit=10, retries=3):
-    """Jedno zapytanie do API. Zwraca (count, [offers]) lub (None, [])."""
+def query(country_id, min_price=None, max_price=None, limit=BAND_LIMIT, retries=3):
+    """Zwraca (count, [offers]) lub (None, [])."""
     for attempt in range(retries):
         try:
             r = requests.post(API_URL, headers=HEADERS,
-                              json=build_body(country_id, limit, max_price), timeout=60)
-            data = json.loads(r.content.decode("utf-8"))  # wymuszamy UTF-8 (polskie znaki)
+                              json=build_body(country_id, limit, min_price, max_price), timeout=60)
+            data = json.loads(r.content.decode("utf-8"))
             if not data.get("success"):
                 msg = data.get("error", {}).get("message", "?")
-                print(f"    ! API blad (maxPrice={max_price}): {msg[-70:]}", file=sys.stderr)
-                time.sleep(1.5 * (attempt + 1))
-                continue
+                print(f"    ! API blad (<= {max_price}): {msg[-70:]}", file=sys.stderr)
+                time.sleep(1.5 * (attempt + 1)); continue
             d = data["data"]
             return d.get("count"), d.get("offers", [])
         except Exception as e:
@@ -122,128 +112,186 @@ def query(country_id, max_price=None, limit=10, retries=3):
     return None, []
 
 
-def slim_offer(o):
-    """Wyciaga tylko interesujace pola z surowej oferty."""
+def count_below(country_id, price):
+    """Liczba ofert z cena <= price (maxPrice). price=None -> wszystkie."""
+    c, _ = query(country_id, max_price=price, limit=1)
+    time.sleep(REQ_DELAY)
+    return c or 0
+
+
+def offer_key(o):
+    return "|".join(str(x) for x in (
+        o.get("hotelId"), o.get("departureDate"), o.get("returnDate"),
+        o.get("serviceDesc"), o.get("tourOperator")))
+
+
+def slim(o):
     place = o.get("place", {}) or {}
     country = (place.get("country") or {}).get("slug", "")
     return {
-        "name": o.get("name"),
-        "place": o.get("placeName"),
-        "price": o.get("price"),
-        "priceOld": o.get("priceOld") or None,
-        "duration": o.get("duration"),
-        "departureDate": o.get("departureDate"),
-        "returnDate": o.get("returnDate"),
-        "departureFrom": o.get("departurePlace"),
-        "operator": o.get("tourOperatorName"),
-        "service": o.get("serviceDesc"),
-        "category": o.get("category"),
-        "rating": o.get("ratingValue") or None,
-        "offerId": o.get("offerId"),
+        "name": o.get("name"), "place": o.get("placeName"),
+        "hotelId": o.get("hotelId"), "urlName": o.get("urlName"),
+        "departureDate": o.get("departureDate"), "returnDate": o.get("returnDate"),
+        "duration": o.get("duration"), "service": o.get("serviceDesc"),
+        "operator": o.get("tourOperatorName"), "departureFrom": o.get("departurePlace"),
+        "category": o.get("category"), "rating": o.get("ratingValue") or None,
         "url": f"https://www.wakacje.pl/wczasy/{country}/" if country else "https://www.wakacje.pl/",
     }
 
 
-def find_price_band(country_id):
-    """Wyszukiwanie binarne: najwyzszy maxPrice, przy ktorym count <= BAND_CAP.
-    Dzieki temu jednym zapytaniem dostajemy KOMPLET najtanszych ofert (deterministycznie)."""
-    lo, hi, best = 0, PRICE_HI, PRICE_HI
-    for _ in range(BAND_ITERS):
-        mid = (lo + hi) // 2
-        count, _ = query(country_id, max_price=mid, limit=1)
-        time.sleep(0.8)
-        if count is None:
-            break
-        if count <= BAND_CAP:
-            best = mid          # mozemy poszerzyc pasmo (wiecej tanich ofert)
-            lo = mid + 1
+def enumerate_offers(country_id):
+    """Enumeruje WSZYSTKIE oferty kierunku przesuwajac okno cenowe (step-sweep).
+    Odporne na throttling: malo zapytan, sam zweza pasmo gdy trafi limit 300.
+    Zwraca ({key: raw_offer}, total_dostepnych)."""
+    total = count_below(country_id, None)      # 1 lekkie zapytanie: dostepnosc
+    offers = {}
+    lo = 0
+    step = STEP_START
+    empties = 0
+    guard = 0
+    while lo <= PRICE_HI and guard < 200:
+        guard += 1
+        hi = min(lo + step, PRICE_HI)
+        count, band = query(country_id, min_price=(lo or None), max_price=hi, limit=BAND_LIMIT)
+        time.sleep(REQ_DELAY)
+        if count is None:                      # twardy blad mimo ponowien -> pomijamy pasmo
+            lo = hi + 1; continue
+        if count >= BAND_LIMIT and step > STEP_MIN:
+            step = max(STEP_MIN, step // 2)    # za szerokie pasmo -> zwez i powtorz ten sam lo
+            continue
+        for o in band:
+            if not o.get("price"):
+                continue
+            k = offer_key(o)
+            if k not in offers or o["price"] < offers[k]["price"]:
+                offers[k] = o
+        # adaptacja szerokosci pasma
+        if count == 0:
+            empties += 1
         else:
-            hi = mid - 1        # za duzo ofert -> obnizamy prog
-    return best
+            empties = 0
+            if count < BAND_LIMIT * 0.4:
+                step = min(STEP_MAX, int(step * 1.6))
+            elif count > BAND_LIMIT * 0.8:
+                step = max(STEP_MIN, int(step * 0.6))
+        if hi >= PRICE_HI:
+            break
+        if empties >= 4 and lo > 8000 and len(offers) >= total * 0.9:
+            break                              # przeszlismy zakres ofert
+        lo = hi + 1
+    return offers, total
 
 
-def scrape_destination(name, country_id):
-    """Pobiera najtansze oferty dla jednego kierunku (przez filtr ceny) i buduje migawke."""
-    print(f"  -> {name} (countryId={country_id})")
+def update_store(dest, slug, scraped, ts, run_iso):
+    """Wczytuje data/offers_<slug>.json, dopisuje obserwacje cen, zapisuje."""
+    path = os.path.join(DATA_DIR, f"offers_{slug}.json")
+    store = {"dest": dest, "offers": {}}
+    if os.path.exists(path):
+        with open(path, encoding="utf-8") as f:
+            store = json.load(f)
+    offers = store.setdefault("offers", {})
 
-    # 1) calkowita liczba ofert (wskaznik dostepnosci / wyprzedania)
-    total_count, _ = query(country_id, max_price=None, limit=1)
-    time.sleep(0.8)
+    # oznacz wszystkie jako nieaktywne; aktywne te, ktore znowu widzimy
+    for e in offers.values():
+        e["active"] = False
 
-    # 2) deterministyczne pasmo najtanszych ofert
-    band = find_price_band(country_id)
-    _, band_offers = query(country_id, max_price=band, limit=BAND_CAP)
+    new_cnt = changed_cnt = 0
+    for k, raw in scraped.items():
+        price = raw["price"]
+        meta = slim(raw)
+        if k in offers:
+            e = offers[k]
+            e.update(meta)               # odswiez metadane
+            e["active"] = True
+            e["last"] = run_iso
+            e["lastPrice"] = price
+            e["minPrice"] = min(e["minPrice"], price)
+            e["maxPrice"] = max(e["maxPrice"], price)
+            if not e["hist"] or e["hist"][-1][1] != price:
+                e["hist"].append([run_iso, price]); changed_cnt += 1
+            e["n"] = e.get("n", 0) + 1
+        else:
+            offers[k] = {**meta, "first": run_iso, "last": run_iso,
+                         "firstPrice": price, "lastPrice": price,
+                         "minPrice": price, "maxPrice": price,
+                         "hist": [[run_iso, price]], "n": 1, "active": True}
+            new_cnt += 1
 
-    rows = [slim_offer(o) for o in band_offers if o.get("price")]
-    rows.sort(key=lambda x: x["price"])
-    prices = [r["price"] for r in rows]
+    store["updatedAt"] = run_iso
+    store["config"] = CONFIG
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump(store, f, ensure_ascii=False)
+    return offers, new_cnt, changed_cnt
 
-    summary = {
-        "ts": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
-        "dest": name,
-        "count": total_count if total_count is not None else len(rows),
-        "band": band,                 # gorna granica zlapanego pasma cen
-        "bandCount": len(rows),       # ile ofert w pasmie
-        "minPrice": prices[0] if prices else None,
-        "avgTop5": round(statistics.mean(prices[:5])) if prices else None,
-        "median": round(statistics.median(prices)) if prices else None,
-    }
-    top = rows[:TOP_N_OFFERS]
-    print(f"     count={summary['count']} min={summary['minPrice']} zl "
-          f"(pasmo <= {band} zl, {len(rows)} ofert)")
-    return summary, top
+
+CONFIG = {"departureDate": DEPARTURE_DATE, "arrivalDate": ARRIVAL_DATE,
+          "durationMin": DURATION_MIN, "durationMax": DURATION_MAX, "adults": ADULTS,
+          "departureCity": DEPARTURE_CITY or "dowolne"}
 
 
 def main():
     os.makedirs(DATA_DIR, exist_ok=True)
     os.makedirs(DOCS_DATA_DIR, exist_ok=True)
+    run_iso = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    print(f"== Scrape {run_iso} ==")
 
-    run_ts = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
-    print(f"== Scrape {run_ts} ==")
+    index = {"generatedAt": run_iso, "config": CONFIG, "destinations": {}}
+    summary_line = []
 
-    summaries = []
-    latest = {"generatedAt": run_ts, "config": {
-        "departureDate": DEPARTURE_DATE, "arrivalDate": ARRIVAL_DATE,
-        "durationMin": DURATION_MIN, "durationMax": DURATION_MAX, "adults": ADULTS,
-        "departureCity": DEPARTURE_CITY or "dowolne",
-    }, "destinations": {}}
-
-    for name, cid in DESTINATIONS.items():
+    for dest, cid in DESTINATIONS.items():
+        print(f"  -> {dest} (countryId={cid})")
         try:
-            summary, top = scrape_destination(name, cid)
+            scraped, total = enumerate_offers(cid)
         except Exception as e:
-            print(f"  !! {name}: {e}", file=sys.stderr)
-            continue
-        summaries.append(summary)
-        latest["destinations"][name] = {"summary": summary, "offers": top}
+            print(f"  !! {dest}: {e}", file=sys.stderr); continue
 
-    if not summaries:
-        print("!! Brak danych — nic nie zapisuje.", file=sys.stderr)
-        sys.exit(1)
+        slug = slugify(dest)
+        offers, new_cnt, changed_cnt = update_store(dest, slug, scraped, run_iso, run_iso)
 
-    # 1) dopisz lekka linie czasowa do history.jsonl (zrodlo prawdy historii)
+        active = [e for e in offers.values() if e["active"]]
+        prices = sorted(e["lastPrice"] for e in active)
+        cheapest = prices[0] if prices else None
+        # licznik spadkow w tym przebiegu
+        drops = sum(1 for e in active if len(e["hist"]) >= 2 and e["hist"][-1][1] < e["hist"][-2][1])
+        print(f"     enumerowano {len(scraped)}/{total} ofert · nowych {new_cnt} · "
+              f"zmian ceny {changed_cnt} · najtansza {cheapest} zl")
+
+        index["destinations"][dest] = {
+            "slug": slug, "total": total, "active": len(active),
+            "tracked": len(offers), "cheapest": cheapest,
+            "median": prices[len(prices)//2] if prices else None,
+            "newThisRun": new_cnt, "priceChangesThisRun": changed_cnt, "dropsThisRun": drops,
+        }
+        summary_line.append({"ts": run_iso, "dest": dest, "count": total,
+                             "active": len(active), "minPrice": cheapest})
+
+        # kopia per-kierunek dla dashboardu (lekka: bez nieaktywnych starszych niz... -> pelna na razie)
+        import shutil
+        shutil.copy(os.path.join(DATA_DIR, f"offers_{slug}.json"),
+                    os.path.join(DOCS_DATA_DIR, f"offers_{slug}.json"))
+
+    if not index["destinations"]:
+        print("!! Brak danych — nic nie zapisuje.", file=sys.stderr); sys.exit(1)
+
+    # lekka historia zbiorcza (do wykresu najtanszej ceny / dostepnosci)
     hist_path = os.path.join(DATA_DIR, "history.jsonl")
     with open(hist_path, "a", encoding="utf-8") as f:
-        for s in summaries:
+        for s in summary_line:
             f.write(json.dumps(s, ensure_ascii=False) + "\n")
-
-    # 2) najnowsze pelne oferty (nadpisywane)
-    with open(os.path.join(DATA_DIR, "latest.json"), "w", encoding="utf-8") as f:
-        json.dump(latest, f, ensure_ascii=False, indent=1)
-
-    # 3) wygeneruj pliki dla dashboardu (GitHub Pages serwuje /docs)
     history = []
     with open(hist_path, encoding="utf-8") as f:
         for line in f:
-            line = line.strip()
-            if line:
+            if line.strip():
                 history.append(json.loads(line))
+
+    with open(os.path.join(DATA_DIR, "index.json"), "w", encoding="utf-8") as f:
+        json.dump(index, f, ensure_ascii=False, indent=1)
+    with open(os.path.join(DOCS_DATA_DIR, "index.json"), "w", encoding="utf-8") as f:
+        json.dump(index, f, ensure_ascii=False)
     with open(os.path.join(DOCS_DATA_DIR, "history.json"), "w", encoding="utf-8") as f:
         json.dump(history, f, ensure_ascii=False)
-    with open(os.path.join(DOCS_DATA_DIR, "latest.json"), "w", encoding="utf-8") as f:
-        json.dump(latest, f, ensure_ascii=False)
 
-    print(f"== Zapisano {len(summaries)} kierunkow, historia: {len(history)} punktow ==")
+    print(f"== Gotowe: {len(index['destinations'])} kierunkow ==")
 
 
 if __name__ == "__main__":

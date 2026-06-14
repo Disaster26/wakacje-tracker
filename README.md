@@ -1,17 +1,20 @@
-# ✈️ Tracker cen wycieczek last-minute
+# ✈️ Tracker cen wycieczek last-minute — historia per oferta
 
 Monitoruje ceny wycieczek z **wakacje.pl** (agregator: Rainbow, Itaka, TUI, Coral Travel,
-Join UP itd.) dla kierunków **Egipt, Turcja, Tunezja, Grecja**. Zbiera dane **2× dziennie**
-przez GitHub Actions i pokazuje historię na stronie (GitHub Pages) — żeby widzieć, czy ceny
-spadają i czy oferty się nie wyprzedają.
+Join UP itd.) dla kierunków **Egipt** i **Turcja**. Zbiera dane **2× dziennie** przez
+GitHub Actions i pokazuje historię na stronie (GitHub Pages).
+
+Kluczowa cecha: śledzi **cenę KAŻDEJ oferty z osobna** (każdy hotel w zadanym oknie dat/długości)
+i buduje jej własną historię cen — nie tylko najtańszą na kierunek.
 
 > Historii **wstecz** nie da się pobrać — tracker buduje historię „w przód", od pierwszego uruchomienia.
 
 ## Co pokazuje dashboard
-- **Najtańsza cena w czasie** (za 2 osoby) — osobna linia na każdy kierunek
-- **Liczba dostępnych ofert w czasie** — gdy spada, kierunek zaczyna się wyprzedawać
-- **Tabela najtańszych ofert teraz** — hotel, termin, długość, wyżywienie, lotnisko, operator, cena (i cena przed obniżką)
-- Na kartach: zmiana ceny od pierwszego pomiaru (% i zł)
+- **Karty kierunków**: najtańsza cena, liczba dostępnych/śledzonych ofert, ile staniało w ostatnim przebiegu
+- **Wykres przeglądowy**: najtańsza cena na kierunek w czasie
+- **Przeglądarka ofert**: wyszukiwarka hoteli, sortowanie (najtańsze / największy spadek / najmocniej przecenione / ocena), filtry (dostępne / przecenione)
+- **Klik w ofertę** → wykres historii ceny tej konkretnej oferty + min/max, status (dostępna/wyprzedana)
+- Mini-wykresy (sparkline) i odznaki „staniało / drożej / wyprzedana" przy każdej ofercie
 
 ## Konfiguracja
 Wszystko na górze pliku [`scraper/scrape.py`](scraper/scrape.py):
