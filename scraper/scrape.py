@@ -34,6 +34,7 @@ DURATION_MIN   = 14
 DURATION_MAX   = 17
 ADULTS         = 2
 DEPARTURE_CITY = None       # None = dowolne lotnisko
+SERVICE_FILTER = [1]        # [1] = tylko All Inclusive (1=AI, 2=HB, 4=wlasne); [] = wszystkie
 
 BAND_LIMIT  = 300           # max ofert na jedno zapytanie (limit API)
 MAX_TRACK   = 500           # ile NAJTANSZYCH ofert sledzic na kierunek (caly realny zakres last-minute)
@@ -75,7 +76,7 @@ def build_body(country_id, limit, min_price=None, max_price=None):
         "departure": DEPARTURE_CITY, "type": [],
         "duration": {"min": DURATION_MIN, "max": DURATION_MAX},
         "minPrice": min_price, "maxPrice": max_price,
-        "service": [], "firstminute": None, "attribute": [], "promotion": [],
+        "service": SERVICE_FILTER, "firstminute": None, "attribute": [], "promotion": [],
         "tourId": None, "search": None, "minCategory": None, "maxCategory": 50,
         "sort": None, "order": None, "rank": None,
         "withoutTours": [], "withoutCountry": [], "withoutTrips": [],
@@ -127,9 +128,27 @@ def offer_key(o):
         o.get("serviceDesc"), o.get("tourOperator")))
 
 
-def slim(o):
+def offer_url(o):
+    """Buduje gleboki link do KONKRETNEJ oferty na dany termin (2 os. = domyslne wakacje.pl).
+    Wzorzec wakacje.pl: /oferty/{kraj}/{region}/{miasto}/{urlName}-{hotelId}.html?od-...,do-..."""
     place = o.get("place", {}) or {}
-    country = (place.get("country") or {}).get("slug", "")
+    parts = []
+    for key in ("country", "region", "city"):
+        v = place.get(key)
+        if v and v.get("slug"):
+            parts.append(v["slug"])
+    seg = "/".join(parts)
+    url_name, hid = o.get("urlName"), o.get("hotelId")
+    dep, ret = o.get("departureDate"), o.get("returnDate")
+    if seg and url_name and hid:
+        url = f"https://www.wakacje.pl/oferty/{seg}/{url_name}-{hid}.html"
+        if dep and ret:
+            url += f"?od-{dep},do-{ret}"
+        return url
+    return "https://www.wakacje.pl/"
+
+
+def slim(o):
     return {
         "name": o.get("name"), "place": o.get("placeName"),
         "hotelId": o.get("hotelId"), "urlName": o.get("urlName"),
@@ -137,7 +156,7 @@ def slim(o):
         "duration": o.get("duration"), "service": o.get("serviceDesc"),
         "operator": o.get("tourOperatorName"), "departureFrom": o.get("departurePlace"),
         "category": o.get("category"), "rating": o.get("ratingValue") or None,
-        "url": f"https://www.wakacje.pl/wczasy/{country}/" if country else "https://www.wakacje.pl/",
+        "url": offer_url(o),
     }
 
 
@@ -223,7 +242,8 @@ def update_store(dest, slug, scraped, ts, run_iso):
 
 CONFIG = {"departureDate": DEPARTURE_DATE, "arrivalDate": ARRIVAL_DATE,
           "durationMin": DURATION_MIN, "durationMax": DURATION_MAX, "adults": ADULTS,
-          "departureCity": DEPARTURE_CITY or "dowolne"}
+          "departureCity": DEPARTURE_CITY or "dowolne",
+          "board": "All Inclusive" if SERVICE_FILTER == [1] else "dowolne"}
 
 
 def main():

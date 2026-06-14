@@ -154,7 +154,8 @@ async function load(){
 function render(index,history,dests){
   const c=index.config;
   document.getElementById('cfg').textContent=
-    `Wylot ${c.departureDate} – ${c.arrivalDate} · ${c.durationMin}–${c.durationMax} dni · ${c.adults} os. · lotnisko: ${c.departureCity}`;
+    `Wylot ${c.departureDate} – ${c.arrivalDate} · ${c.durationMin}–${c.durationMax} dni · ${c.adults} os.`
+    + ` · ${c.board||'dowolne'} · lotnisko: ${c.departureCity}`;
   document.getElementById('foot').textContent=
     'Ostatnia aktualizacja: '+fmtD(index.generatedAt)+' · źródło: wakacje.pl · zbierane 2× dziennie';
 
