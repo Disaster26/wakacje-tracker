@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-06-14T20:03:27Z",
+ "generatedAt": "2026-06-14T20:22:26Z",
  "config": {
   "departureDate": "2026-06-28",
   "arrivalDate": "2026-07-12",
@@ -12,12 +12,12 @@
  "destinations": {
   "Egipt": {
    "slug": "egipt",
-   "total": 713,
-   "active": 541,
-   "tracked": 541,
+   "total": 714,
+   "active": 542,
+   "tracked": 542,
    "cheapest": 1889,
    "median": 6061,
-   "newThisRun": 541,
+   "newThisRun": 1,
    "priceChangesThisRun": 0,
    "dropsThisRun": 0
   },
@@ -28,7 +28,7 @@
    "tracked": 559,
    "cheapest": 2619,
    "median": 6325,
-   "newThisRun": 559,
+   "newThisRun": 0,
    "priceChangesThisRun": 0,
    "dropsThisRun": 0
   }
