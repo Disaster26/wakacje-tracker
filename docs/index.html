@@ -92,9 +92,31 @@
   .close{float:right;background:var(--card2);border:1px solid var(--line);color:var(--text);
          border-radius:9px;padding:6px 12px;cursor:pointer;font-size:14px}
   @media(max-width:560px){h1{font-size:18px}.card .big{font-size:20px}.price{font-size:17px}}
+  /* bramka hasla */
+  .gate{position:fixed;inset:0;background:var(--bg);display:flex;align-items:center;
+        justify-content:center;padding:20px;z-index:100}
+  .gatebox{background:var(--card);border:1px solid var(--line);border-radius:14px;
+           padding:26px 24px;max-width:340px;width:100%;text-align:center}
+  .gatebox h2{margin:0 0 4px;font-size:20px}
+  .gatebox p{color:var(--muted);font-size:13px;margin:0 0 16px}
+  .gatebox input{width:100%;background:var(--card2);border:1px solid var(--line);color:var(--text);
+                 border-radius:10px;padding:12px 14px;font-size:15px;outline:none;text-align:center}
+  .gatebox input:focus{border-color:var(--accent)}
+  .gatebox button{width:100%;margin-top:10px;background:var(--accent);color:#04121f;border:none;
+                  border-radius:10px;padding:12px;font-size:15px;font-weight:700;cursor:pointer}
+  .gateerr{color:var(--red);font-size:13px;margin-top:10px;min-height:16px}
 </style>
 </head>
 <body>
+<div class="gate" id="gate">
+  <div class="gatebox">
+    <h2>🔒 Dostęp chroniony</h2>
+    <p>Podaj hasło, aby zobaczyć ceny wycieczek.</p>
+    <input id="gatePass" type="password" placeholder="Hasło" autocomplete="current-password" inputmode="text">
+    <button id="gateBtn">Wejdź</button>
+    <div class="gateerr" id="gateErr"></div>
+  </div>
+</div>
 <header>
   <h1>✈️ Tracker cen wycieczek — historia per oferta</h1>
   <div class="sub" id="cfg">Ładowanie…</div>
@@ -358,7 +380,28 @@ function closeModal(){document.getElementById('modal').classList.remove('open');
   if(STATE.modalChart){STATE.modalChart.destroy();STATE.modalChart=null;}}
 document.getElementById('modal').onclick=e=>{if(e.target.id==='modal')closeModal();};
 
-load();
+// --- bramka hasla (zapamietywana w localStorage) ---
+const PASS='egypt3', PKEY='wt_auth';
+let loaded=false;
+function unlock(){
+  document.getElementById('gate').style.display='none';
+  document.body.style.overflow='';
+  if(!loaded){ loaded=true; load(); }
+}
+function tryPass(){
+  const v=document.getElementById('gatePass').value.trim();
+  if(v===PASS){ try{localStorage.setItem(PKEY,PASS);}catch(e){} unlock(); }
+  else { document.getElementById('gateErr').textContent='Błędne hasło — spróbuj ponownie.'; }
+}
+(function gateInit(){
+  let ok=false; try{ ok=localStorage.getItem(PKEY)===PASS; }catch(e){}
+  if(ok){ unlock(); return; }
+  document.body.style.overflow='hidden';
+  document.getElementById('gateBtn').onclick=tryPass;
+  const inp=document.getElementById('gatePass');
+  inp.addEventListener('keydown',e=>{ if(e.key==='Enter') tryPass(); });
+  inp.focus();
+})();
 </script>
 </body>
 </html>
