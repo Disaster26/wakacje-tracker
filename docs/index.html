@@ -54,6 +54,19 @@
   .chartbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin:14px 0}
   .chartbox h2{font-size:15px;margin:0 0 10px;display:flex;gap:8px;align-items:center}
   .pill{font-size:11px;padding:2px 7px;border-radius:10px;background:var(--card2);color:var(--muted);font-weight:400}
+  .sec-h{font-size:16px;margin:20px 0 6px;display:flex;align-items:center;gap:8px}
+  .hl{display:grid;grid-template-columns:repeat(auto-fit,minmax(215px,1fr));gap:10px;margin:4px 0}
+  .hlcard{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--green);
+          border-radius:11px;padding:11px 13px;cursor:pointer;transition:border-color .12s}
+  .hlcard:hover{border-color:var(--green)}
+  .hlcard .nm{font-weight:600;font-size:13.5px}
+  .hlcard .pl{font-size:11.5px;color:var(--muted);margin:2px 0 7px}
+  .hlcard .pr{display:flex;align-items:baseline;gap:8px}
+  .hlcard .new{font-size:18px;font-weight:700}
+  .hlcard .old{font-size:12px;color:var(--muted);text-decoration:line-through}
+  .hlcard .dd{font-size:12.5px;font-weight:700;color:var(--green);margin-top:4px}
+  .hl-empty{color:var(--muted);font-size:13px;background:var(--card);border:1px dashed var(--line);
+            border-radius:11px;padding:14px;line-height:1.5}
   .chart-h{position:relative;height:260px}
   a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
   .err{color:var(--amber);padding:16px;display:block}
@@ -85,6 +98,9 @@
 <div class="wrap">
   <div class="cards" id="cards"></div>
 
+  <div class="sec-h">🔥 Największe spadki cen <span class="pill">oferty, które potaniały od startu śledzenia</span></div>
+  <div id="highlights"></div>
+
   <div class="chartbox">
     <h2>Najtańsza cena na kierunek w czasie <span class="pill">za 2 osoby</span></h2>
     <div class="chart-h"><canvas id="ovChart"></canvas></div>
@@ -115,6 +131,7 @@ const COLORS={Egipt:'#ffcf5c',Turcja:'#3ea6ff',Tunezja:'#39d98a',Grecja:'#ff6b6b
 const fmt=n=>n==null?'—':new Intl.NumberFormat('pl-PL').format(Math.round(n))+' zł';
 const fmtD=s=>new Date(s).toLocaleString('pl-PL',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'});
 const PAGE=80;
+const MIN_DROP_ABS=100, MIN_DROP_PCT=3;   // prog "znaczacego" spadku: >=100 zl LUB >=3%
 let STATE={dest:null,offersByDest:{},shown:PAGE,modalChart:null};
 
 async function load(){
@@ -154,6 +171,9 @@ function render(index,history,dests){
       </div>`);
   }
 
+  // najwieksze spadki
+  renderHighlights(dests);
+
   // wykres przeglądowy
   const labels=[...new Set(history.map(r=>r.ts))].sort();
   const ds=dests.map(d=>{const m=Object.fromEntries(history.filter(r=>r.dest===d).map(r=>[r.ts,r.minPrice]));
@@ -182,7 +202,36 @@ function render(index,history,dests){
   drawList();
 }
 
-function entryKey(e){return e.hotelId+'|'+e.departureDate+'|'+e.service+'|'+e.operator;}
+function renderHighlights(dests){
+  const box=document.getElementById('highlights');
+  const drops=[];
+  for(const d of dests){
+    for(const [k,e] of Object.entries(STATE.offersByDest[d]||{})){
+      if(!e.active) continue;
+      const abs=e.firstPrice-e.lastPrice;          // >0 = potaniało od startu
+      if(abs<=0) continue;
+      const pct=abs/e.firstPrice*100;
+      if(abs>=MIN_DROP_ABS||pct>=MIN_DROP_PCT) drops.push({d,k,e,abs,pct});
+    }
+  }
+  drops.sort((a,b)=>b.pct-a.pct);
+  if(!drops.length){
+    box.className='';
+    box.innerHTML='<div class="hl-empty">Na razie nic znaczącego nie staniało. 🙂<br>'+
+      'Pierwsze spadki pojawią się, gdy bot zbierze kolejne pomiary (rano i wieczorem). Wróć za dzień–dwa — '+
+      'tu wskoczą oferty, które potaniały o ≥100 zł lub ≥3%.</div>';
+    return;
+  }
+  box.className='hl';
+  box.innerHTML=drops.slice(0,8).map(x=>`
+    <div class="hlcard" style="border-left-color:${COLORS[x.d]||'#39d98a'}" data-d="${x.d}" data-k="${encodeURIComponent(x.k)}">
+      <div class="nm">${x.e.name||'—'}</div>
+      <div class="pl">${x.e.place||x.d}</div>
+      <div class="pr"><span class="new">${fmt(x.e.lastPrice)}</span><span class="old">${fmt(x.e.firstPrice)}</span></div>
+      <div class="dd">▼ ${fmt(x.abs)} (−${x.pct.toFixed(1)}%)</div>
+    </div>`).join('');
+  box.querySelectorAll('.hlcard').forEach(el=>el.onclick=()=>openModal(decodeURIComponent(el.dataset.k),el.dataset.d));
+}
 
 function filterSort(){
   const offers=STATE.offersByDest[STATE.dest]||{};
@@ -240,8 +289,9 @@ function drawList(){
   list.querySelectorAll('.offer').forEach(el=>el.onclick=()=>openModal(decodeURIComponent(el.dataset.k)));
 }
 
-function openModal(k){
-  const e=(STATE.offersByDest[STATE.dest]||{})[k];if(!e)return;
+function openModal(k,dest){
+  dest=dest||STATE.dest;
+  const e=(STATE.offersByDest[dest]||{})[k];if(!e)return;
   const chg=e.lastPrice-e.firstPrice;
   const sheet=document.getElementById('sheet');
   sheet.innerHTML=`<button class="close" onclick="closeModal()">✕ Zamknij</button>
@@ -258,7 +308,7 @@ function openModal(k){
     <div class="chart-h" style="margin-top:12px"><canvas id="ofChart"></canvas></div>`;
   document.getElementById('modal').classList.add('open');
   if(STATE.modalChart)STATE.modalChart.destroy();
-  const col=COLORS[STATE.dest]||'#3ea6ff';
+  const col=COLORS[dest]||'#3ea6ff';
   STATE.modalChart=new Chart(document.getElementById('ofChart'),{type:'line',
     data:{labels:e.hist.map(p=>fmtD(p[0])),datasets:[{label:'Cena',data:e.hist.map(p=>p[1]),
       borderColor:col,backgroundColor:col+'22',fill:true,stepped:false,tension:.2,pointRadius:3}]},
