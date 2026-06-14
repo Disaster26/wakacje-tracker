@@ -154,7 +154,7 @@ async function load(){
 function render(index,history,dests){
   const c=index.config;
   document.getElementById('cfg').textContent=
-    `Wylot ${c.departureDate} – ${c.arrivalDate} · ${c.durationMin}–${c.durationMax} dni · ${c.adults} os.`
+    `Wylot ${c.departureFrom} – ${c.departureTo} · ${c.durationMin}–${c.durationMax} dni · ${c.adults} os.`
     + ` · ${c.board||'dowolne'} · lotnisko: ${c.departureCity}`;
   document.getElementById('foot').textContent=
     'Ostatnia aktualizacja: '+fmtD(index.generatedAt)+' · źródło: wakacje.pl · zbierane 2× dziennie';
@@ -167,7 +167,7 @@ function render(index,history,dests){
       <div class="card" style="border-top:3px solid ${COLORS[d]||'#3ea6ff'}">
         <h3>${d}</h3>
         <div class="big">${fmt(s.cheapest)}</div>
-        <div class="sm">najtańsze ${s.active} z ${s.total} dostępnych<br>${s.tracked} śledzonych w czasie</div>
+        <div class="sm">${s.active} ofert All Inclusive<br>w oknie wylotu · ${s.tracked} śledzonych w czasie</div>
         <div class="sm">${s.dropsThisRun?`<span class="down">▼ ${s.dropsThisRun} staniało</span> · `:''}${s.priceChangesThisRun||0} zmian ceny</div>
       </div>`);
   }

@@ -28,8 +28,11 @@ DESTINATIONS = {            # nazwa -> countryId wakacje.pl
     "Egipt":  37,
     "Turcja": 16,
 }
-DEPARTURE_DATE = "2026-06-28"
-ARRIVAL_DATE   = "2026-07-12"
+DEPARTURE_FROM = "2026-06-28"   # najwczesniejszy WYLOT
+DEPARTURE_TO   = "2026-07-12"   # najpozniejszy WYLOT (filtr po stronie kodu)
+# arrivalDate w API = "powrot do"; ustawiamy szeroko (wylot_do + max dlugosc + zapas),
+# a wylot zawezamy do [DEPARTURE_FROM, DEPARTURE_TO] filtrem ponizej
+RETURN_BY      = "2026-07-31"
 DURATION_MIN   = 14
 DURATION_MAX   = 17
 ADULTS         = 2
@@ -38,7 +41,7 @@ SERVICE_FILTER = [1]        # [1] = tylko All Inclusive (1=AI, 2=HB, 4=wlasne); 
 
 BAND_LIMIT  = 300           # max ofert na jedno zapytanie (limit API)
 MAX_TRACK   = 500           # ile NAJTANSZYCH ofert sledzic na kierunek (caly realny zakres last-minute)
-MAX_FETCHES = 35            # twardy limit zapytan-pasm na kierunek (czas + grzecznosc)
+MAX_FETCHES = 42            # twardy limit zapytan-pasm na kierunek (czas + grzecznosc)
 STEP_START  = 1200          # poczatkowa szerokosc pasma cenowego (zl)
 STEP_MIN    = 60            # min szerokosc pasma (gdy gesto)
 STEP_MAX    = 4000          # max szerokosc pasma (gdy rzadko)
@@ -72,7 +75,7 @@ def build_body(country_id, limit, min_price=None, max_price=None):
         "catalog": None, "roomType": None, "test": None, "year": None, "month": None,
         "rangeDate": None, "withoutLast": 0, "category": False, "not-attribute": False,
         "pageNumber": 1,
-        "departureDate": DEPARTURE_DATE, "arrivalDate": ARRIVAL_DATE,
+        "departureDate": DEPARTURE_FROM, "arrivalDate": RETURN_BY,
         "departure": DEPARTURE_CITY, "type": [],
         "duration": {"min": DURATION_MIN, "max": DURATION_MAX},
         "minPrice": min_price, "maxPrice": max_price,
@@ -129,8 +132,9 @@ def offer_key(o):
 
 
 def offer_url(o):
-    """Buduje gleboki link do KONKRETNEJ oferty na dany termin (2 os. = domyslne wakacje.pl).
-    Wzorzec wakacje.pl: /oferty/{kraj}/{region}/{miasto}/{urlName}-{hotelId}.html?od-...,do-..."""
+    """Gleboki link do KONKRETNEJ oferty na dany termin (2 os. = domyslne wakacje.pl).
+    Wzorzec: /oferty/{kraj}/{region}/{miasto}/{urlName}-{offerId}.html?od-...,do-...
+    UWAGA: id w sciezce to offerId (NIE hotelId — hotelId przekierowuje na liste!)."""
     place = o.get("place", {}) or {}
     parts = []
     for key in ("country", "region", "city"):
@@ -138,10 +142,10 @@ def offer_url(o):
         if v and v.get("slug"):
             parts.append(v["slug"])
     seg = "/".join(parts)
-    url_name, hid = o.get("urlName"), o.get("hotelId")
+    url_name, oid = o.get("urlName"), o.get("offerId")
     dep, ret = o.get("departureDate"), o.get("returnDate")
-    if seg and url_name and hid:
-        url = f"https://www.wakacje.pl/oferty/{seg}/{url_name}-{hid}.html"
+    if seg and url_name and oid:
+        url = f"https://www.wakacje.pl/oferty/{seg}/{url_name}-{oid}.html"
         if dep and ret:
             url += f"?od-{dep},do-{ret}"
         return url
@@ -181,6 +185,9 @@ def enumerate_offers(country_id):
             continue
         for o in band:
             if not o.get("price"):
+                continue
+            dep = o.get("departureDate") or ""
+            if not (DEPARTURE_FROM <= dep <= DEPARTURE_TO):   # tylko wylot w oknie
                 continue
             k = offer_key(o)
             if k not in offers or o["price"] < offers[k]["price"]:
@@ -240,7 +247,7 @@ def update_store(dest, slug, scraped, ts, run_iso):
     return offers, new_cnt, changed_cnt
 
 
-CONFIG = {"departureDate": DEPARTURE_DATE, "arrivalDate": ARRIVAL_DATE,
+CONFIG = {"departureFrom": DEPARTURE_FROM, "departureTo": DEPARTURE_TO,
           "durationMin": DURATION_MIN, "durationMax": DURATION_MAX, "adults": ADULTS,
           "departureCity": DEPARTURE_CITY or "dowolne",
           "board": "All Inclusive" if SERVICE_FILTER == [1] else "dowolne"}
@@ -270,7 +277,7 @@ def main():
         cheapest = prices[0] if prices else None
         # licznik spadkow w tym przebiegu
         drops = sum(1 for e in active if len(e["hist"]) >= 2 and e["hist"][-1][1] < e["hist"][-2][1])
-        print(f"     sledzonych {len(scraped)} najtanszych z {total} dostepnych · "
+        print(f"     {len(scraped)} ofert AI (wylot {DEPARTURE_FROM}..{DEPARTURE_TO}) · "
               f"nowych {new_cnt} · zmian ceny {changed_cnt} · najtansza {cheapest} zl")
 
         index["destinations"][dest] = {
