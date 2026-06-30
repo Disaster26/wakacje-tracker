@@ -122,3 +122,7 @@
 {"ts": "2026-06-29T20:52:49Z", "dest": "Egipt", "view": "all", "active": 567, "minPrice": 2858}
 {"ts": "2026-06-29T20:52:49Z", "dest": "Turcja", "view": "waw", "active": 570, "minPrice": 2794}
 {"ts": "2026-06-29T20:52:49Z", "dest": "Turcja", "view": "all", "active": 625, "minPrice": 2794}
+{"ts": "2026-06-30T08:36:18Z", "dest": "Egipt", "view": "waw", "active": 323, "minPrice": 3250}
+{"ts": "2026-06-30T08:36:18Z", "dest": "Egipt", "view": "all", "active": 177, "minPrice": 2858}
+{"ts": "2026-06-30T08:36:18Z", "dest": "Turcja", "view": "waw", "active": 498, "minPrice": 2761}
+{"ts": "2026-06-30T08:36:18Z", "dest": "Turcja", "view": "all", "active": 524, "minPrice": 2316}
