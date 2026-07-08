@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-07-08T07:39:22Z",
+ "generatedAt": "2026-07-08T20:24:52Z",
  "config": {
   "departureFrom": "2026-06-28",
   "departureTo": "2026-07-12",
@@ -21,24 +21,24 @@
     "waw": {
      "label": "tylko z Warszawy",
      "storeSlug": "egipt_waw",
-     "active": 180,
+     "active": 129,
      "tracked": 2244,
-     "cheapest": 3725,
-     "median": 7419,
-     "newThisRun": 36,
-     "priceChangesThisRun": 27,
-     "dropsThisRun": 55
+     "cheapest": 4301,
+     "median": 7648,
+     "newThisRun": 0,
+     "priceChangesThisRun": 26,
+     "dropsThisRun": 47
     },
     "all": {
      "label": "wszystkie lotniska",
      "storeSlug": "egipt_all",
-     "active": 515,
-     "tracked": 3924,
-     "cheapest": 2461,
-     "median": 6361,
-     "newThisRun": 30,
-     "priceChangesThisRun": 129,
-     "dropsThisRun": 200
+     "active": 524,
+     "tracked": 4042,
+     "cheapest": 1930,
+     "median": 6949,
+     "newThisRun": 118,
+     "priceChangesThisRun": 232,
+     "dropsThisRun": 187
     }
    }
   },
@@ -48,24 +48,24 @@
     "waw": {
      "label": "tylko z Warszawy",
      "storeSlug": "turcja_waw",
-     "active": 524,
-     "tracked": 6282,
-     "cheapest": 3456,
-     "median": 9268,
-     "newThisRun": 140,
-     "priceChangesThisRun": 237,
-     "dropsThisRun": 232
+     "active": 505,
+     "tracked": 6444,
+     "cheapest": 3357,
+     "median": 10463,
+     "newThisRun": 162,
+     "priceChangesThisRun": 238,
+     "dropsThisRun": 192
     },
     "all": {
      "label": "wszystkie lotniska",
      "storeSlug": "turcja_all",
-     "active": 537,
-     "tracked": 5827,
-     "cheapest": 2838,
-     "median": 6968,
-     "newThisRun": 149,
-     "priceChangesThisRun": 219,
-     "dropsThisRun": 199
+     "active": 510,
+     "tracked": 6017,
+     "cheapest": 2781,
+     "median": 7529,
+     "newThisRun": 190,
+     "priceChangesThisRun": 238,
+     "dropsThisRun": 165
     }
    }
   }
