@@ -1,5 +1,5 @@
 {
- "generatedAt": "2026-07-12T20:08:44Z",
+ "generatedAt": "2026-07-13T08:25:41Z",
  "config": {
   "departureFrom": "2026-06-28",
   "departureTo": "2026-07-12",
@@ -59,13 +59,13 @@
     "all": {
      "label": "wszystkie lotniska",
      "storeSlug": "turcja_all",
-     "active": 2,
+     "active": 0,
      "tracked": 6712,
-     "cheapest": 9538,
-     "median": 10038,
-     "newThisRun": 1,
-     "priceChangesThisRun": 1,
-     "dropsThisRun": 1
+     "cheapest": null,
+     "median": null,
+     "newThisRun": 0,
+     "priceChangesThisRun": 0,
+     "dropsThisRun": 0
     }
    }
   }
