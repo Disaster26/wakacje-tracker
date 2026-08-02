@@ -386,3 +386,7 @@
 {"ts": "2026-08-02T07:39:00Z", "dest": "Egipt", "view": "all", "active": 0, "minPrice": null}
 {"ts": "2026-08-02T07:39:00Z", "dest": "Turcja", "view": "waw", "active": 0, "minPrice": null}
 {"ts": "2026-08-02T07:39:00Z", "dest": "Turcja", "view": "all", "active": 0, "minPrice": null}
+{"ts": "2026-08-02T20:14:07Z", "dest": "Egipt", "view": "waw", "active": 0, "minPrice": null}
+{"ts": "2026-08-02T20:14:07Z", "dest": "Egipt", "view": "all", "active": 0, "minPrice": null}
+{"ts": "2026-08-02T20:14:07Z", "dest": "Turcja", "view": "waw", "active": 0, "minPrice": null}
+{"ts": "2026-08-02T20:14:07Z", "dest": "Turcja", "view": "all", "active": 0, "minPrice": null}
